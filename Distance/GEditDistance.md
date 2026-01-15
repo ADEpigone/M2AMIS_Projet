@@ -50,6 +50,11 @@ def GED(G, H):
         if la diff est sommet manquant dans G_cur:
             successeurs.add(appliquer(ajouter sommet diff, cur))
 
+        if la diff est une couleur de sommet :
+            successeur.add(état avec la couleur changée) 
+        if la diff est une couleur d'arête :
+            successeur.add(état avec la couleur changée) 
+
         for s in successeur:
             if s.cout_deja_paye + lower_bound(s.G_cur, H) < best_cost:
                 queue.add(s)
