@@ -1,3 +1,5 @@
+UPDATE : Toujours et encore un graph kernel ?
+
 # La distance d'édition d'un graphe
 
 Cette distance est purement syntaxique, aucune sémantique.
@@ -50,6 +52,7 @@ def GED(G, H):
         if la diff est sommet manquant dans G_cur:
             successeurs.add(appliquer(ajouter sommet diff, cur))
 
+        #on peut aussi envisager de le gérer à part, mais ce serait stochastique
         if la diff est une couleur de sommet :
             successeur.add(état avec la couleur changée) 
         if la diff est une couleur d'arête :

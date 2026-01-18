@@ -1,4 +1,7 @@
 
+uPDATE : Ce n'est qu'une façon de calculer des graph kernel... ?
+
+
 Ici l'idée est de prendre le graphe + données et de calculer un embedding dans un espace latent.
 L'espace latent est un espace abstrait de "haute" dimension (128 à 512 ?).
 Il faut alors définir une fonction f : G,D -> L.
