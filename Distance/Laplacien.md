@@ -16,6 +16,7 @@ https://arxiv.org/pdf/2201.07083
 
 Graph kernel k(G,H) = distance entre les deux graphes.
 On a k(G,H) = <phi(G), phi(H)> avec phi un embedder (souvent infini apparemment)
+Il faut que l'espace embeddé soit un espace de Hilbert (a un produit scalaire et est complet sous la norme induite). On n'a aucune condition sur phi !
 
 1-WL : 
 Itérativement on va construire de nouveaux labels sur les graphes, pour chaque sommet on va faire hash(label sommet + liste labels voisins)
