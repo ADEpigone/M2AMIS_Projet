@@ -4,7 +4,6 @@ class IsomorphismTestPlugin(CLIPlugin):
 
     def __init__(self, parser):
         super().__init__(parser, command_name="iso", help_text = "Tester si deux molécules sont isomorphes")
-        self.command_name = "iso"
         self.add_argument("--id1", help_text="L'ID Chebi de la molécule", required=True)
         self.add_argument("--id2", help_text="L'ID Chebi de la molécule", required=True)
 

@@ -4,7 +4,6 @@ class ExportPlugin(CLIPlugin):
 
     def __init__(self, parser):
         super().__init__(parser, command_name="export", help_text = "Exporter le graphe d'une molécule à partir d'un ID Chebi")
-        self.command_name = "export"
         self.add_argument("--chebi_id", help_text="L'ID Chebi de la molécule", required=True)
 
     def execute(self, namespace, **kwargs):
