@@ -46,6 +46,32 @@ class MoleculeGraph:
         #à faire
         pass
 
+    @classmethod
+    def molFromFile(MoleculeGraph, path):
+        nbNodes = 0
+        nbEdges = 0
+        find = False
+        i = 1
+        listNodes = []
+        listEdges = []
+        with open(path) as f:
+            for line in f.readlines():
+                splitted = line.split()
+                if not find:
+                    if len(splitted) < 2:
+                        continue
+                    if splitted[0].isdigit() and splitted[1].isdigit():
+                        nbNodes, nbEdges = int(splitted[0]), int(splitted[1])
+                        find = True
+                else:
+                    if i <= nbNodes:
+                        listNodes.append(Node(i, splitted[3]))
+                    elif i <= nbNodes + nbEdges:
+                        listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], splitted[2]))
+                    i += 1
+
+        return MoleculeGraph(listNodes, listEdges)
+
 if __name__ == "__main__":
     n1 = Node(1, "C")
     n2 = Node(2, "O")
@@ -53,8 +79,10 @@ if __name__ == "__main__":
     e1 = Edge(n1, n2, "d")
     e2 = Edge(n1, n3, "s")
 
-    g = MoleculeGraph([n1, n2, n3], [e1, e2])
+    #g = MoleculeGraph([n1, n2, n3], [e1, e2])
 
-    print(g.get_neighbors(n1))
-    print(g.get_neighbors(n2))
-    print(g.get_neighbors(n3))
+    #print(g.get_neighbors(n1))
+    #print(g.get_neighbors(n2))
+    #print(g.get_neighbors(n3))
+    g = MoleculeGraph.molFromFile("C:\\Users\\ethan\\Downloads\\CHEBI_136874.mol")
+    print(g.get_neighbors(Node(1, "C")))
