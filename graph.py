@@ -47,7 +47,7 @@ class MoleculeGraph:
         pass
 
     @classmethod
-    def molFromFile(MoleculeGraph, path):
+    def from_molfile(MoleculeGraph, path):
         nbNodes = 0
         nbEdges = 0
         find = False
@@ -72,6 +72,31 @@ class MoleculeGraph:
 
         return MoleculeGraph(listNodes, listEdges)
 
+    @classmethod
+    def from_moltext(MoleculeGraph, moltext):
+        nbNodes = 0
+        nbEdges = 0
+        find = False
+        i = 1
+        listNodes = []
+        listEdges = []
+        for line in moltext.splitlines():
+            splitted = line.split()
+            if not find:
+                if len(splitted) < 2:
+                    continue
+                if splitted[0].isdigit() and splitted[1].isdigit():
+                    nbNodes, nbEdges = int(splitted[0]), int(splitted[1])
+                    find = True
+            else:
+                if i <= nbNodes:
+                    listNodes.append(Node(i, splitted[3]))
+                elif i <= nbNodes + nbEdges:
+                    listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], splitted[2]))
+                i += 1
+
+        return MoleculeGraph(listNodes, listEdges)
+
 if __name__ == "__main__":
     n1 = Node(1, "C")
     n2 = Node(2, "O")
@@ -84,5 +109,9 @@ if __name__ == "__main__":
     #print(g.get_neighbors(n1))
     #print(g.get_neighbors(n2))
     #print(g.get_neighbors(n3))
-    g = MoleculeGraph.molFromFile("C:\\Users\\ethan\\Downloads\\CHEBI_136874.mol")
+    #g = MoleculeGraph.from_molfile("C:\\Users\\ethan\\Downloads\\CHEBI_136874.mol")
+    #print(g.get_neighbors(Node(1, "C")))
+    import Chebi.CheBi as Chebi
+    retr = Chebi.Chebi("chebi_cache.db")
+    g = MoleculeGraph.from_moltext(retr.get_mol("136874"))
     print(g.get_neighbors(Node(1, "C")))
