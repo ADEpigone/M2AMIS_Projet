@@ -15,6 +15,10 @@ class Edge(NamedTuple):
     color : str
 
 class MoleculeGraph:
+
+    nbDiffAtome = 0
+    nbDiffLink = 0
+
     def __init__(self, nodes : list[Node] = None, edges : list[Edge] = None, directed=False):
         self.nodes = set()
         self.edges = {}
@@ -42,6 +46,18 @@ class MoleculeGraph:
             return []
         return [edge.v for edge in self.edges[node.id]]
     
+    def getNbDiffAtome(self):
+        return self.nbDiffAtome
+    
+    def setNbDiffAtome(self, val):
+        self.nbDiffAtome = val
+    
+    def getNbDiffLink(self):
+        return self.nbDiffLink
+    
+    def setNbDiffLink(self, val):
+        self.nbDiffLink = val
+    
     def export_to_nauty(self):
         #à faire
         pass
@@ -54,6 +70,8 @@ class MoleculeGraph:
         i = 1
         listNodes = []
         listEdges = []
+        tempAtomes = set()
+        tempLink = set()
         with open(path) as f:
             for line in f.readlines():
                 splitted = line.split()
@@ -66,11 +84,18 @@ class MoleculeGraph:
                 else:
                     if i <= nbNodes:
                         listNodes.append(Node(i, splitted[3]))
+                        tempAtomes.add(splitted[3])
                     elif i <= nbNodes + nbEdges:
-                        listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], splitted[2]))
+                        listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], int(splitted[2])))
+                        tempLink.add(splitted[2])
                     i += 1
+        
 
-        return MoleculeGraph(listNodes, listEdges)
+        g = MoleculeGraph(listNodes, listEdges)
+        g.setNbDiffAtome(len(tempAtomes))
+        g.setNbDiffLink(len(tempLink))
+
+        return g
 
     @classmethod
     def from_moltext(MoleculeGraph, moltext):
@@ -115,3 +140,5 @@ if __name__ == "__main__":
     retr = Chebi.Chebi("chebi_cache.db")
     g = MoleculeGraph.from_moltext(retr.get_mol("136874"))
     print(g.get_neighbors(Node(1, "C")))
+    print(g.getNbDiffAtome())
+    print(g.getNbDiffLink())
