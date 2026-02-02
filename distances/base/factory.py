@@ -1,5 +1,5 @@
-from .distance_test import DistanceTest
 
+from distances.graph_edit_distance import GraphEditDistance
 
 class DistanceFactory:
     """
@@ -9,7 +9,7 @@ class DistanceFactory:
     @staticmethod
     def create(nom_distance: str):
         if nom_distance == "test":
-            return DistanceTest()
-        
+            return GraphEditDistance()
+
 
         raise ValueError(f"Distance inconnue : {nom_distance}")

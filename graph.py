@@ -41,6 +41,14 @@ class MoleculeGraph:
         if not directed:
             self.edges[edge.v.id].append(Edge(edge.v, edge.u, edge.color))
 
+    def has_edge(self, u : Node, v : Node) -> bool:
+        if u.id not in self.edges:
+            return False
+        for edge in self.edges[u.id]:
+            if edge.v == v:
+                return True
+        return False
+
     def get_neighbors(self, node : Node) -> list[Node]:
         if node.id not in self.edges:
             return []

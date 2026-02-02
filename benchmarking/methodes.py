@@ -1,9 +1,9 @@
 from typing import Dict, List
-from .distances.distance import Distance
+from distances.base.graph_distance import BaseGraphDistance
 
 
 def benchmark_knn(
-    distance: Distance,
+    distance: BaseGraphDistance,
     dataset: Dict[str, List[str]],
     k: int = 3
 ):
@@ -22,7 +22,7 @@ def benchmark_knn(
         for autre in dataset.keys():
             if autre == mol:
                 continue
-            d = distance.calculer_distance(mol, autre)
+            d = distance.calculate_distance(mol, autre)
             distances.append((autre, d))
 
         distances.sort(key=lambda x: x[1])
@@ -48,7 +48,7 @@ def benchmark_knn(
 
 
 def benchmark_monotonie_separation(
-    distance: Distance,
+    distance: BaseGraphDistance,
     dataset: List[str]
 ):
     """
@@ -56,10 +56,10 @@ def benchmark_monotonie_separation(
     """
     seed, e1, e2, e3, random_mol = dataset
 
-    d1 = distance.calculer_distance(seed, e1)
-    d2 = distance.calculer_distance(seed, e2)
-    d3 = distance.calculer_distance(seed, e3)
-    dr = distance.calculer_distance(seed, random_mol)
+    d1 = distance.calculate_distance(seed, e1)
+    d2 = distance.calculate_distance(seed, e2)
+    d3 = distance.calculate_distance(seed, e3)
+    dr = distance.calculate_distance(seed, random_mol)
 
     monotonie = d1 < d2 < d3
     separation = max(d1, d2, d3) < dr
