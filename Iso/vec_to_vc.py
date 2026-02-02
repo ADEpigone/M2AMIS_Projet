@@ -1,11 +1,10 @@
 from graph import Node, Edge, MoleculeGraph
 
-def transformation(graph : MoleculeGraph, debug = False):
+def to_vc(graph : MoleculeGraph, debug = False):
 
     # récup des couleurs
     colorsTemp = set()
     k, values = zip(*graph.edges.items())
-    print(list(values))
 
     for edges in list(values):
         for edge in edges:
@@ -14,15 +13,15 @@ def transformation(graph : MoleculeGraph, debug = False):
     # tri des couleurs et mapping vers int
     colors = sorted(list(colorsTemp))
     colorsToInt = {color : i + 1 for i, color in enumerate(colors)}
-    print("colors : " + str(colors))
-    print("colortoint : " + str(colorsToInt))
+    print("Colors : " + str(colors))
+    print("Colortoint : " + str(colorsToInt))
 
     nbOfColors = len(colors)
     if nbOfColors == 0:
         nbOfLayers = 1
     else:
         nbOfLayers = nbOfColors.bit_length()
-    print("Nb layers : " + str(nbOfLayers))
+    print("Nb of layers : " + str(nbOfLayers))
 
     N = len(graph.nodes)
     newNodes = []
@@ -52,7 +51,6 @@ def transformation(graph : MoleculeGraph, debug = False):
     
     # edges horizontaux
     for edges in list(values):
-        print(edges)
         for edge in edges:
             colorVal = colorsToInt[edge.color]
 
@@ -63,11 +61,11 @@ def transformation(graph : MoleculeGraph, debug = False):
                     newEdges.append(Edge(uNew, vNew, "horizontalLink"))
     
     if debug == True:
-        print("NODES : ")
+        print("NEW NODES : ")
         for node in newNodes:
             print("N: ", str(node))
         print("#############################################")
-        print("EDGES : ")
+        print("NEW EDGES : ")
         for edge in newEdges:
             print("E: ", str(edge))
     
@@ -86,7 +84,9 @@ def test_node_and_colors(graph1, graph2, nboflayer):
     
 
 if __name__ == "__main__":
-    g = MoleculeGraph.molFromFile("C:\\Users\\cyria\\Downloads\\CHEBI_27518.mol")
+    g = MoleculeGraph.from_molfile("C:\\Users\\cyria\\Downloads\\CHEBI_73474.mol")
     
-    newG = transformation(g, True)
-    test_node_and_colors(g, newG, 1)
+    newG = to_vc(g, True)
+    
+    # Pour tester changer le nombre de layer en arg
+    test_node_and_colors(g, newG, 2)
