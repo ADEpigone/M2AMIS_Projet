@@ -3,9 +3,9 @@ https://github.com/pdobsan/pynauty/tree/main
 Pour convertir vertex-edge en vertex ! (Il faut adapter un peu pour garder les couleurs sur les sommets)
 
 - Utilisation de nauty
-- Entrée : résultat du parse d'Ethan (représentation du graphe correspondante à une entrée de la bibliothèque)
-- Transformation des entrées en graphes cannoniques
-- Différences entre les graphes cannoniques à évaluer (mesure de distance avec Alex)
+- Entrée : résultat du parse d'Ethan (représentation du graphe correspondante à une entrée de la bibliothèque) ou directement par un .mol
+- Transformation des entrées vertex edges colored en vertex colored only (14. Variations de la doc nauty)
+- Différences entre les graphes à évaluer avec les certifications rendues par pynauty sur deux graphes entrés
 
 Pour nauty : https://users.cecs.anu.edu.au/~bdm/nauty/nug29.pdf
 - Logique de la comparaison (set de générateurs, orbits ...) (à expliquer rapidement le 22/01)
