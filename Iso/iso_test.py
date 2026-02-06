@@ -1,23 +1,24 @@
 from Iso.vec_to_vc import *
 from Iso.nauty_wrapper import *
+from similarites.base.graph_similarity import BaseGraphSimilarity
 
-class iso_test:
+class IsoTest(BaseGraphSimilarity):
+    def calculate_similarity(self, g1 : MoleculeGraph, g2: MoleculeGraph) -> float:
+        if self.are_isomorphic(g1, g2, directed=False):
+            return 1.0
+        return 0.0
 
-    def __init__(self, g1, g2):
-        self.graph1 = g1
-        self.graph2 = g2
+    def are_isomorphic(self,g1 : MoleculeGraph, g2: MoleculeGraph, directed = False) -> bool:
 
-    def are_isomorphic(self, directed):
+        pg1 = to_pynauty(to_vc(g1), directed)
+        pg2 = to_pynauty(to_vc(g2), directed)
 
-        pg1 = to_pynauty(to_vc(self.graph1), directed)
-        pg2 = to_pynauty(to_vc(self.graph2), directed)
-
-        return "Are isomorphs ? : ", pynauty.certificate(pg1) == pynauty.certificate(pg2)
+        return pynauty.certificate(pg1) == pynauty.certificate(pg2)
 
 
 if __name__ == "__main__":
     g1 = MoleculeGraph.from_molfile("CHEBI_187524.mol")
     g2 = MoleculeGraph.from_molfile("CHEBI_187524.mol")
 
-    test = iso_test(g1, g2)
-    print(test.are_isomorphic(directed=False))
+    test = IsoTest()
+    print(test.calculate_similarity(g1, g2))
