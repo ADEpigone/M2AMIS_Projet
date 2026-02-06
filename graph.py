@@ -19,8 +19,9 @@ class MoleculeGraph:
     nbDiffAtome = 0
     nbDiffLink = 0
 
-    def __init__(self, nodes : list[Node] = None, edges : list[Edge] = None, directed=False):
+    def __init__(self, nodes : list[Node] = None, edges : list[Edge] = None, directed=False, mol_file = None):
         self.nodes = set()
+        self.mol = mol_file
         self.edges = {}
         #on pourrait utiliser implicitement les nodes à partir de ceux des edges, mais je pense que pour l'instant c'est mieux
         for elem in nodes:
@@ -81,7 +82,8 @@ class MoleculeGraph:
         tempAtomes = set()
         tempLink = set()
         with open(path) as f:
-            for line in f.readlines():
+            moltext = f.read()
+            for line in moltext.splitlines():
                 splitted = line.split()
                 if not find:
                     if len(splitted) < 2:
@@ -99,7 +101,7 @@ class MoleculeGraph:
                     i += 1
         
 
-        g = MoleculeGraph(listNodes, listEdges)
+        g = MoleculeGraph(listNodes, listEdges, mol_file=moltext)
         g.setNbDiffAtome(len(tempAtomes))
         g.setNbDiffLink(len(tempLink))
 
@@ -128,7 +130,7 @@ class MoleculeGraph:
                     listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], splitted[2]))
                 i += 1
 
-        return MoleculeGraph(listNodes, listEdges)
+        return MoleculeGraph(listNodes, listEdges, mol_file=moltext)
 
 if __name__ == "__main__":
     n1 = Node(1, "C")
