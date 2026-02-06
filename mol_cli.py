@@ -1,5 +1,6 @@
 import argparse
 
+from Chebi.CheBi import Chebi
 from utils import *
 
 
@@ -8,7 +9,9 @@ if __name__ == "__main__":
 
     commands = parser.add_subparsers(dest='command', required=True)
 
-    plugins = [plugin(commands) for plugin in get_all_plugins()]
+    chebi_client = Chebi()
+
+    plugins = [plugin(commands, chebi_client=chebi_client) for plugin in get_all_plugins()]
 
 
     args = parser.parse_args()
