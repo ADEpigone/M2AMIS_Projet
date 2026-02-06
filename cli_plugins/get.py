@@ -6,7 +6,7 @@ from utils import get_mol_file
 
 class GetPlugin(CLIPlugin):
 
-    def __init__(self, parser):
+    def __init__(self, parser, **kwargs):
         super().__init__(parser, command_name="get", help_text = "Récupère le fichier mol d'une molécule à partir de son ID Chebi")
         self.add_argument("--chebi_id", help_text="L'ID Chebi de la molécule", required=True)
 

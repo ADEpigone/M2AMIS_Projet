@@ -7,10 +7,21 @@ from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 
+SIMILARITIES = {
+    "tanimoto": DataStructs.TanimotoSimilarity,
+    "dice": DataStructs.DiceSimilarity,
+    "cosine": DataStructs.CosineSimilarity,
+}
+
+
 class BaseSimilarityFromFingerprint(BaseGraphSimilarity, ABC):
 
-    def __init__(self, similarity_function=DataStructs.TanimotoSimilarity, n_bits=2048):
-        self.similarity_function = similarity_function
+    def __init__(self, similarity=DataStructs.TanimotoSimilarity, n_bits=2048):
+        if type(similarity) == str and similarity in SIMILARITIES:
+            self.similarity = SIMILARITIES[similarity]
+        else:
+            self.similarity = similarity
+
         self.n_bits = n_bits
     
     @abstractmethod
@@ -30,4 +41,4 @@ class BaseSimilarityFromFingerprint(BaseGraphSimilarity, ABC):
         return bit_vect
 
     def calculate_similarity(self, g1: MoleculeGraph, g2: MoleculeGraph) -> float:
-        return self.similarity_function(self.calculate_fingerprint(g1), self.calculate_fingerprint(g2))
+        return self.similarity(self.calculate_fingerprint(g1), self.calculate_fingerprint(g2))

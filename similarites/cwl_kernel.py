@@ -12,8 +12,8 @@ import math
 from itertools import combinations
 
 class CWLKernel(BaseSimilarityFromFingerprint):
-    def __init__(self, iterations: int = 3, max_cycle_length: int = 8, similarity_function=DataStructs.TanimotoSimilarity, n_bits=2048):
-        super().__init__(similarity_function=similarity_function, n_bits=n_bits)
+    def __init__(self, iterations: int = 3, max_cycle_length: int = 8, similarity=DataStructs.TanimotoSimilarity, n_bits=2048):
+        super().__init__(similarity=similarity, n_bits=n_bits)
         self.iterations = iterations
         self.max_cycle_length = max_cycle_length
 

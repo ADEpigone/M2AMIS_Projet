@@ -24,20 +24,18 @@ class BuiltinSimilarity(BaseSimilarityFromFingerprint):
     Prend un objet Mol ou le bloc de texte de la molécule.
     Retourne la similarité de Tanimoto selon la fingerprint de Morgan
     '''
-    def __init__(self, fingerprint_function = "morgan", similarity_function="tanimoto"):
-        if type(fingerprint_function) == str and fingerprint_function in FINGERPRINTS:
-            self.fingerprint_function = FINGERPRINTS[fingerprint_function]
-        if type(similarity_function) == str and similarity_function in SIMILARITIES:
-            similarity_function = SIMILARITIES[similarity_function]
-        super().__init__(similarity_function)
+    def __init__(self, fingerprint = "morgan", similarity ="tanimoto"):
+        if type(fingerprint) == str and fingerprint in FINGERPRINTS:
+            self.fingerprint = FINGERPRINTS[fingerprint](2)
+        super().__init__(similarity)
 
-    def calculate_fingerprint(self, g1: MoleculeGraph, g2: MoleculeGraph) -> float:
-        if g1.mol is None or g2.mol is None:
+    def calculate_fingerprint(self, g1: MoleculeGraph) -> DataStructs:
+        if g1.mol is None:
             raise ValueError("Molécule sans mol stocké, que faire ?")
-        mol1, mol2 = g1.mol, g2.mol
+        mol = g1.mol
+        m = Chem.MolFromMolBlock(mol, sanitize=True)
 
-        return self.fingerprint_function.GetFingerprint(mol1), self.fingerprint_function.GetFingerprint(mol2)
-    
+        return self.fingerprint.GetFingerprint(m)
 
 #BAH DU COUP CECI MARCHE PAS : IL FAUT PASSER PAR DB QUAND EWAN AURA MERGE
 # PUNAISE MERGE SRX

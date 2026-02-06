@@ -5,7 +5,7 @@ sys.path.append("../")
 from utils import get_mol_file
 from datetime import datetime
 class Chebi:
-    def __init__(self, bd_link = None):
+    def __init__(self, bd_link = "chebi_cache.db"):
         #sqlite bd
         self.bd_link = bd_link
         self.conn = None
