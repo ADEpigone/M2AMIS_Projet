@@ -9,8 +9,17 @@ from cli_plugins.base.CLI_plugin import CLIPlugin
 from rdkit import Chem
 from rdkit import RDLogger
 
+from Chebi.ontology.parser import parse_obo
+from Chebi.ontology.ontology_tree import OntologyTree
+
 MOL_LITE_URL = "https://ftp.ebi.ac.uk/pub/databases/chebi/SDF/chebi_lite.sdf.gz"
 MOL_LITE_UPDATE = "DB_updates\\mol_lite_last_update.txt"
+
+ONTOLOGY_OBO_URL = "https://ftp.ebi.ac.uk/pub/databases/chebi/ontology/chebi.obo.gz"
+ONTOLOGY_UPDATE = "DB_updates\\ontology_last_update.txt"
+ONTOLOGY_CACHE = "DB_updates\\chebi_ontology.obo"
+
+_ontology_tree_cache = None
 
 def get_mol_lite(url=MOL_LITE_URL):
     """
@@ -93,6 +102,97 @@ def prep_db_load(response_content, info_date=None):
     info_date = None
     print("DB Chebi2 Up To Date !")
 
+
+def has_ontology_changed(url=ONTOLOGY_OBO_URL, local_db_date_path=ONTOLOGY_UPDATE, info_date=None):
+    """Vérifie si l'ontologie OBO distante a changé."""
+    return has_db_changed(url=url, local_db_date_path=local_db_date_path, info_date=info_date)
+
+
+def download_and_store_ontology(url=ONTOLOGY_OBO_URL, cache_path=ONTOLOGY_CACHE, info_date=None):
+    """
+    Télécharge le fichier chebi.obo.gz, le décompresse et le stocke localement.
+    """
+    print("Téléchargement de l'ontologie ChEBI...")
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Impossible de télécharger l'ontologie : HTTP {response.status_code}")
+
+    with gzip.open(io.BytesIO(response.content), 'rb') as f:
+        obo_text = f.read().decode('utf-8')
+
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    with open(cache_path, 'w', encoding='utf-8') as f:
+        f.write(obo_text)
+
+    # Mise à jour date locale
+    if info_date and 'local_path' in info_date and 'remote_date' in info_date:
+        with open(info_date['local_path'], "w") as f:
+            f.write(" ".join(info_date['remote_date']))
+        info_date = None
+
+    print("Ontologie ChEBI téléchargée et stockée !")
+    return obo_text
+
+
+def load_ontology(cache_path=ONTOLOGY_CACHE, force_download=False) -> OntologyTree:
+    """
+    Charge l'ontologie ChEBI.
+    Télécharge automatiquement si pas en cache ou si mise à jour disponible.
+    """
+    global _ontology_tree_cache
+    if _ontology_tree_cache is not None and not force_download:
+        return _ontology_tree_cache
+
+    obo_text = None
+
+    # Vérifier si on doit mettre à jour
+    info_date = {}
+    try:
+        needs_update = has_ontology_changed(info_date=info_date)
+    except Exception:
+        needs_update = not os.path.exists(cache_path)
+
+    if needs_update or force_download or not os.path.exists(cache_path):
+        obo_text = download_and_store_ontology(info_date=info_date)
+    else:
+        print("Chargement de l'ontologie depuis le cache local...")
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            obo_text = f.read()
+
+    print("Parsing de l'ontologie...")
+    _ontology_tree_cache = parse_obo(obo_text)
+    print(f"Ontologie chargée : {_ontology_tree_cache}")
+    return _ontology_tree_cache
+
+def get_ontology_props(chebi_id: str, ontology: OntologyTree = None) -> dict:
+    """
+    Récupère les propriétés ontologiques d'un ID ChEBI.
+    
+    :return: dict avec name, definition, synonyms, parents, relationships, ancestors, etc.
+    """
+    if ontology is None:
+        ontology = load_ontology()
+
+    # Normaliser l'id (accepte "12345" ou "CHEBI:12345")
+    if not chebi_id.startswith("CHEBI:"):
+        chebi_id = f"CHEBI:{chebi_id}"
+
+    node = ontology.get_node(chebi_id)
+    if node is None:
+        return {}
+
+    return {
+        "chebi_id": node.chebi_id,
+        "name": node.name,
+        "definition": node.definition,
+        "synonyms": node.synonyms,
+        "parents": [{"id": p.chebi_id, "name": p.name} for p in node.parents],
+        "children": [{"id": c.chebi_id, "name": c.name} for c in node.children],
+        "relationships": dict(node.properties),
+        "ancestors": list(node.get_ancestors()),
+        "depth": node.get_depth(),
+    }
+
 def get_mol_file(chebi_id):
     """
     Récupère le fichier mol d'un ID
@@ -139,3 +239,15 @@ if __name__ == "__main__":
     if has_db_changed(MOL_LITE_URL, MOL_LITE_UPDATE, info_date):
         content = get_mol_lite(MOL_LITE_URL)
         prep_db_load(content, info_date)
+
+    ontology = load_ontology()
+    
+    props = get_ontology_props("16236", ontology)
+    print(f"Nom: {props['name']}")
+    print(f"Définition: {props['definition']}")
+    print(f"Parents: {props['parents']}")
+    print(f"Profondeur: {props['depth']}")
+    print(f"Relationships: {props['relationships']}")
+    print("Props : ", props)
+
+    print(ontology.get_lca("CHEBI:15377", "CHEBI:16236"))

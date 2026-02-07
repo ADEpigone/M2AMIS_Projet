@@ -19,9 +19,10 @@ class MoleculeGraph:
     nbDiffAtome = 0
     nbDiffLink = 0
 
-    def __init__(self, nodes : list[Node] = None, edges : list[Edge] = None, directed=False, mol_file = None):
+    def __init__(self, nodes : list[Node] = None, edges : list[Edge] = None, directed=False, mol_file = None, chebi_id = None):
         self.nodes = set()
         self.mol = mol_file
+        self.chebi_id = chebi_id
         self.edges = {}
         #on pourrait utiliser implicitement les nodes à partir de ceux des edges, mais je pense que pour l'instant c'est mieux
         for elem in nodes:
