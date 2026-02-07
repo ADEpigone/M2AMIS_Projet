@@ -1,4 +1,4 @@
-from distances.base.factory import DistanceFactory
+from similarites.base.factory import DistanceFactory
 from .methodes import (
     benchmark_knn,
     benchmark_monotonie_separation,
