@@ -3,7 +3,7 @@ from typing import Optional
 
 
 class OntologyNode:
-    """Nœud de l'arbre d'ontologie ChEBI."""
+    """NNoeud de l'arbre d'ontologie ChEBI."""
 
     def __init__(self, chebi_id: str, name: str = "", definition: str = ""):
         self.chebi_id = chebi_id
@@ -63,6 +63,7 @@ class OntologyTree:
     def __init__(self):
         self.nodes: dict[str, OntologyNode] = {}
         self.roots: list[OntologyNode] = []
+        self._depth_cache: dict[str, int] = {}
 
     def get_or_create_node(self, chebi_id: str) -> OntologyNode:
         if chebi_id not in self.nodes:
@@ -73,11 +74,11 @@ class OntologyTree:
         return self.nodes.get(chebi_id)
 
     def build_roots(self):
-        """Identifie les racines (nœuds sans parents)."""
+        """Identifie les racines (noeuds sans parents)."""
         self.roots = [n for n in self.nodes.values() if not n.parents]
 
     def get_lca(self, id_a: str, id_b: str) -> Optional[OntologyNode]:
-        """Lowest Common Ancestor entre deux nœuds."""
+        """Lowest Common Ancestor entre deux noeuds."""
         node_a = self.get_node(id_a)
         node_b = self.get_node(id_b)
         if not node_a or not node_b:
@@ -92,16 +93,23 @@ class OntologyTree:
         if not common:
             return None
 
-        # Le LCA est l'ancêtre commun le plus profond
         best = None
         best_depth = -1
         for cid in common:
-            node = self.get_node(cid)
-            if node:
-                d = node.get_depth()
-                if d > best_depth:
-                    best_depth = d
-                    best = node
+            if cid in self._depth_cache:
+                d = self._depth_cache[cid]
+                node = self.get_node(cid) 
+            else:
+                node = self.get_node(cid)
+                if node:
+                    d = node.get_depth()
+                    self._depth_cache[cid] = d 
+                else:
+                    continue
+            
+            if d > best_depth:
+                best_depth = d
+                best = node
         return best
 
     def search_by_name(self, query: str) -> list[OntologyNode]:
