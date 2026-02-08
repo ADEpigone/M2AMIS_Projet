@@ -4,6 +4,8 @@ import random
 from tqdm import tqdm
 from pathlib import Path
 import sys
+
+from similarites.ontology_similarity import OntologySimilarity
 sys.path.append("./..")
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
@@ -19,10 +21,10 @@ RDLogger.DisableLog('rdApp.*')
 
 DB_PATH = "chebi2.db"
 JSON_OUTPUT = "clusters_data.json"
-MAX_MOLECULES = 10000
-DIST_THRESHOLD = 0.75 # Seuil pour le clustering
+MAX_MOLECULES = 1000
+DIST_THRESHOLD = 0.4 # Seuil pour le clustering
 
-def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto")):
+def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto"), save_path = JSON_OUTPUT, has_fingerprint = True, dist_threshold = DIST_THRESHOLD):
     db = CheBi2(DB_PATH)
 
     molecules = []
@@ -48,7 +50,8 @@ def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto")):
     print(f"{len(molecules)} molécules prêtes.")
     
     print("Calcul des fingerprints...")
-    fingerprints = [sim_kernel.calculate_fingerprint(m["graph"]) for m in tqdm(molecules)]
+    if has_fingerprint: 
+        fingerprints = [sim_kernel.calculate_fingerprint(m["graph"]) for m in tqdm(molecules)]
 
     print("Calcul matrice de distance...")
     n = len(molecules)
@@ -56,14 +59,17 @@ def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto")):
     
     for i in tqdm(range(n), desc="Distances"):
         for j in range(i + 1, n):
-            s = sim_kernel.calculate_similarity(fingerprints[i], fingerprints[j])
+            if has_fingerprint:
+                s = sim_kernel.calculate_similarity(fingerprints[i], fingerprints[j])
+            else:
+                s = sim_kernel.calculate_similarity(molecules[i]["graph"], molecules[j]["graph"])
             condensed_dist.append(max(0.0, 1.0 - s))
     
     dist_array = np.array(condensed_dist)
 
     print("Clustering...")
     Z = linkage(dist_array, method='average')
-    labels = fcluster(Z, t=DIST_THRESHOLD, criterion='distance')
+    labels = fcluster(Z, t=dist_threshold, criterion='distance')
 
     export_data = []
     for i, m in enumerate(molecules):
@@ -73,13 +79,13 @@ def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto")):
             "cluster": int(labels[i])
         })
 
-    with open(JSON_OUTPUT, "w") as f:
+    with open(save_path, "w") as f:
         json.dump(export_data, f, indent=4)
     
-    print(f"Fichier save dans : {JSON_OUTPUT}")
+    print(f"Fichier save dans : {save_path}")
 
 
-def load_clusters():
+def load_clusters(file_path = JSON_OUTPUT):
     """
     Charge juste le JSON pour analyse rapide sans tout recalculer.
     """
@@ -90,11 +96,11 @@ def load_clusters():
 
     chebi_db = CheBi2(DB_PATH)
 
-    if not Path(JSON_OUTPUT).exists():
+    if not Path(file_path).exists():
         print("Fichier JSON introuvable.")
         return
 
-    with open(JSON_OUTPUT, "r") as f:
+    with open(file_path, "r") as f:
         data = json.load(f)
 
     for elem in data:
@@ -111,8 +117,18 @@ def load_clusters():
     return clusters
 
 
-if __name__ == "__main__":
 
-    run_clustering_and_save()
+if __name__ == "__main__":
+    ontology = load_ontology()
     
-    #load_clusters()
+    th = 0.32
+    sim_kernel = OntologySimilarity(ontology)
+    output = f"clusters_ontology_t{th}.json"
+    
+    run_clustering_and_save(
+        sim_kernel=sim_kernel,
+        save_path=output,
+        has_fingerprint=False,
+        dist_threshold=th 
+    )
+    
