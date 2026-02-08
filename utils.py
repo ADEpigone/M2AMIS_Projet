@@ -71,7 +71,7 @@ def prep_db_load(response_content, info_date=None):
     RDLogger.DisableLog('rdApp.*')
     with gzip.open(io.BytesIO(response_content), 'rb') as f:
         # ForwardSDMolSupplier lit le flux compressé sans tout charger en RAM
-        suppl = Chem.ForwardSDMolSupplier(f, sanitize=False, removeHs=False)
+        suppl = Chem.ForwardSDMolSupplier(f, sanitize=True, removeHs=False)
         
         batch = []
         pbar = tqdm(desc="Parsing ChEBI_SDF_file", unit=" mol")

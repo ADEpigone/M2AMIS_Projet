@@ -40,7 +40,21 @@ class CheBi2:
         if result:
             return result[0]
         return None
-
+    
+    def get_all_mols(self):
+        if not self.cursor:
+            raise Exception("Database connection is not established.")
+        self.cursor.execute('SELECT chebi_id, mol_name, mol_file FROM chebi2')
+        while True:
+            row = self.cursor.fetchone()
+            if row is None:
+                break
+            yield row
+    def nb_mols(self):
+        if not self.cursor:
+            raise Exception("Database connection is not established.")
+        self.cursor.execute('SELECT COUNT(*) FROM chebi2')
+        return self.cursor.fetchone()[0]
 if __name__ == "__main__":
     bd = CheBi2("chebi2.db")
     bd.update_table([("CHEBI:37", "(+)-Nornicotine", "molfile content here")])
