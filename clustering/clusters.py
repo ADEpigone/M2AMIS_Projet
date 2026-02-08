@@ -22,7 +22,7 @@ JSON_OUTPUT = "clusters_data.json"
 MAX_MOLECULES = 10000
 DIST_THRESHOLD = 0.75 # Seuil pour le clustering
 
-def run_clustering_and_save():
+def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto")):
     db = CheBi2(DB_PATH)
 
     molecules = []
@@ -46,8 +46,6 @@ def run_clustering_and_save():
             break
     
     print(f"{len(molecules)} molécules prêtes.")
-
-    sim_kernel = CWLKernel(similarity="tanimoto")
     
     print("Calcul des fingerprints...")
     fingerprints = [sim_kernel.calculate_fingerprint(m["graph"]) for m in tqdm(molecules)]
