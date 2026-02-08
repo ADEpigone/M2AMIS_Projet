@@ -52,18 +52,15 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         for node in g.nodes:
             node_to_edges[node.id] = set()
 
-        # Parcourir toutes les arêtes
         for node_id, edges in g.edges.items():
             for edge in edges:
                 key = self._get_edge_key(edge.u.id, edge.v.id)
                 if key not in edge_labels:
-                    # Label initial d'une 1-cell : combinaison des labels des endpoints + type de liaison
                     edge_labels[key] = str(edge.color)
                     edge_to_nodes[key] = (edge.u.id, edge.v.id)
                 node_to_edges.setdefault(edge.u.id, set()).add(key)
                 node_to_edges.setdefault(edge.v.id, set()).add(key)
 
-        # Co-boundary (upper adjacency) : deux arêtes sont voisines si elles partagent un nœud
         edge_neighbors = {key: set() for key in edge_labels}
         for node_id, incident_edges in node_to_edges.items():
             for e1 in incident_edges:
@@ -89,7 +86,6 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         face_neighbors = defaultdict(set)
 
         for face_id, cycle in enumerate(cycles):
-            # Arêtes du cycle
             edges_in_face = set()
             edge_label_list = []
             for i in range(len(cycle)):
@@ -105,12 +101,10 @@ class CWLKernel(BaseSimilarityFromFingerprint):
             for ekey in edges_in_face:
                 edge_to_faces[ekey].add(face_id)
 
-            # Label initial : hash des labels d'arêtes triés + taille du cycle
             edge_label_list.sort()
             init_sig = f"face_{len(cycle)}_{'_'.join(edge_label_list)}"
             face_labels[face_id] = self._hash(init_sig)
 
-        # Adjacence entre faces : deux faces partagent au moins une arête
         for ekey, face_ids in edge_to_faces.items():
             for f1 in face_ids:
                 for f2 in face_ids:
@@ -137,9 +131,7 @@ class CWLKernel(BaseSimilarityFromFingerprint):
                 return
             for neighbor in adj[current]:
                 if neighbor == start and len(path) >= 3:
-                    # Cycle trouvé — canonicaliser
                     cycle = tuple(path)
-                    # Rotation canonique : commencer par le plus petit id, choisir la direction minimale
                     canon = self._canonical_cycle(cycle)
                     found_cycles.add(canon)
                 elif neighbor not in visited:
@@ -152,7 +144,6 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         for node in g.nodes:
             dfs(node.id, node.id, {node.id}, [node.id], 1)
 
-        # Filtrer pour ne garder que les cycles minimaux (pas de cycle qui est l'union de sous-cycles)
         return self._filter_minimal_cycles(found_cycles)
 
     def _canonical_cycle(self, cycle):
@@ -175,7 +166,6 @@ class CWLKernel(BaseSimilarityFromFingerprint):
                 e = self._get_edge_key(cycle[i], cycle[(i + 1) % len(cycle)])
                 edges_of_cycle.add(e)
 
-            # Vérifier si ce cycle est l'union exacte de cycles plus petits déjà trouvés
             is_composite = False
             if len(covered_edge_sets) >= 2:
                 for r in range(2, len(covered_edge_sets) + 1):
@@ -205,28 +195,20 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         Cellular WL : on raffine itérativement les labels des 0-cells (nœuds),
         1-cells (arêtes) et 2-cells (faces), puis on accumule dans un histogramme.
         """
-        # Labels initiaux des 0-cells
         node_labels = {node.id: node.color for node in g.nodes}
-
-        # Structures pour les 1-cells
         edge_labels, node_to_edges, edge_to_nodes, edge_neighbors = self._build_edge_structures(g)
-
-        # Structures pour les 2-cells
         face_labels, face_boundary, edge_to_faces, face_neighbors = self._build_face_structures(g, edge_labels)
 
-        # Histogramme : labels initiaux
         all_labels = []
         all_labels.extend(f"0c_{l}" for l in node_labels.values())
         all_labels.extend(f"1c_{l}" for l in edge_labels.values())
         all_labels.extend(f"2c_{l}" for l in face_labels.values())
 
         for _ in range(self.iterations):
-            # === Mise à jour des 0-cells (nœuds) ===
             new_node_labels = {}
             for node in g.nodes:
                 label_u = node_labels[node.id]
 
-                # Adjacence (voisins via arêtes)
                 adj_patterns = []
                 if node.id in g.edges:
                     for edge in g.edges[node.id]:
@@ -235,7 +217,6 @@ class CWLKernel(BaseSimilarityFromFingerprint):
                         adj_patterns.append(f"{neighbor_label}_{bond_label}")
                 adj_patterns.sort()
 
-                # Boundary (labels des 1-cells incidentes)
                 boundary_patterns = []
                 for ekey in sorted(node_to_edges.get(node.id, set())):
                     boundary_patterns.append(edge_labels[ekey])
@@ -244,21 +225,17 @@ class CWLKernel(BaseSimilarityFromFingerprint):
                 signature = f"{label_u}|ADJ:{''.join(adj_patterns)}|BND:{''.join(boundary_patterns)}"
                 new_node_labels[node.id] = self._hash(signature)
 
-            # === Mise à jour des 1-cells (arêtes) ===
             new_edge_labels = {}
             for ekey, elabel in edge_labels.items():
                 u_id, v_id = edge_to_nodes[ekey]
 
-                # Boundary (labels des 2 nœuds endpoints)
                 boundary = sorted([node_labels[u_id], node_labels[v_id]])
 
-                # Co-boundary (labels des 2-cells incidentes = faces contenant cette arête)
                 coboundary_patterns = []
                 for fid in sorted(edge_to_faces.get(ekey, set())):
                     coboundary_patterns.append(face_labels[fid])
                 coboundary_patterns.sort()
 
-                # Adjacence (arêtes voisines partageant un nœud)
                 adj_patterns = []
                 for neighbor_ekey in sorted(edge_neighbors[ekey]):
                     adj_patterns.append(edge_labels[neighbor_ekey])
@@ -267,16 +244,13 @@ class CWLKernel(BaseSimilarityFromFingerprint):
                 signature = f"{elabel}|BND:{''.join(boundary)}|COBND:{''.join(coboundary_patterns)}|ADJ:{''.join(adj_patterns)}"
                 new_edge_labels[ekey] = self._hash(signature)
 
-            # === Mise à jour des 2-cells (faces) ===
             new_face_labels = {}
             for fid, flabel in face_labels.items():
-                # Boundary (labels des arêtes du cycle)
                 boundary_patterns = []
                 for ekey in sorted(face_boundary[fid]):
                     boundary_patterns.append(edge_labels[ekey])
                 boundary_patterns.sort()
 
-                # Adjacence (faces partageant une arête)
                 adj_patterns = []
                 for neighbor_fid in sorted(face_neighbors.get(fid, set())):
                     adj_patterns.append(face_labels[neighbor_fid])
@@ -285,12 +259,10 @@ class CWLKernel(BaseSimilarityFromFingerprint):
                 signature = f"{flabel}|BND:{''.join(boundary_patterns)}|ADJ:{''.join(adj_patterns)}"
                 new_face_labels[fid] = self._hash(signature)
 
-            # Mettre à jour tous les labels
             node_labels = new_node_labels
             edge_labels = new_edge_labels
             face_labels = new_face_labels
 
-            # Accumuler dans l'histogramme
             all_labels.extend(f"0c_{l}" for l in node_labels.values())
             all_labels.extend(f"1c_{l}" for l in edge_labels.values())
             all_labels.extend(f"2c_{l}" for l in face_labels.values())
@@ -300,7 +272,6 @@ class CWLKernel(BaseSimilarityFromFingerprint):
 
 if __name__ == "__main__":
 
-    # Exemple avec un cycle (triangle) pour tester les 2-cells
     n1 = Node(1, "C")
     n2 = Node(2, "C")
     n3 = Node(3, "O")
