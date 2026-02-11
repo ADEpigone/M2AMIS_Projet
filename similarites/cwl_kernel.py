@@ -21,6 +21,8 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         """
         Calcule le fingerprint à partir de l'histogramme généré par le Cellular WL.
         """
+        if type(g) == DataStructs.ExplicitBitVect:
+            return g
         histo = self._compute_histo(g)
         return self._counter_to_fingerprint(histo)
 

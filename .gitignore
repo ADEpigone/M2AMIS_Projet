@@ -217,3 +217,6 @@ __marimo__/
 
 #VS Code
 .vscode/
+
+DB_updates/
+chebi2.db

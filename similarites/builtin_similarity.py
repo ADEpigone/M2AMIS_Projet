@@ -30,6 +30,8 @@ class BuiltinSimilarity(BaseSimilarityFromFingerprint):
         super().__init__(similarity)
 
     def calculate_fingerprint(self, g1: MoleculeGraph) -> DataStructs:
+        if type(g1) == DataStructs.ExplicitBitVect:
+            return g1
         if g1.mol is None:
             raise ValueError("Molécule sans mol stocké, que faire ?")
         mol = g1.mol

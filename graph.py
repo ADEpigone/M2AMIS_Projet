@@ -73,7 +73,7 @@ class MoleculeGraph:
         pass
 
     @classmethod
-    def from_molfile(MoleculeGraph, path):
+    def from_molfile(MoleculeGraph, path, chebi_id=None):
         nbNodes = 0
         nbEdges = 0
         find = False
@@ -102,14 +102,14 @@ class MoleculeGraph:
                     i += 1
         
 
-        g = MoleculeGraph(listNodes, listEdges, mol_file=moltext)
+        g = MoleculeGraph(listNodes, listEdges, mol_file=moltext, chebi_id=chebi_id)
         g.setNbDiffAtome(len(tempAtomes))
         g.setNbDiffLink(len(tempLink))
 
         return g
 
     @classmethod
-    def from_moltext(MoleculeGraph, moltext):
+    def from_moltext(MoleculeGraph, moltext, chebi_id=None):
         nbNodes = 0
         nbEdges = 0
         find = False
@@ -118,6 +118,7 @@ class MoleculeGraph:
         listEdges = []
         for line in moltext.splitlines():
             splitted = line.split()
+            #print(splitted)
             if not find:
                 if len(splitted) < 2:
                     continue
@@ -131,7 +132,7 @@ class MoleculeGraph:
                     listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], splitted[2]))
                 i += 1
 
-        return MoleculeGraph(listNodes, listEdges, mol_file=moltext)
+        return MoleculeGraph(listNodes, listEdges, mol_file=moltext, chebi_id=chebi_id)
 
 if __name__ == "__main__":
     n1 = Node(1, "C")
