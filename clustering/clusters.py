@@ -21,8 +21,8 @@ RDLogger.DisableLog('rdApp.*')
 
 DB_PATH = "chebi2.db"
 JSON_OUTPUT = "clusters_data.json"
-MAX_MOLECULES = 1000
-DIST_THRESHOLD = 0.4 # Seuil pour le clustering
+MAX_MOLECULES = 10000
+DIST_THRESHOLD = 0.75 # Seuil pour le clustering
 
 def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto"), save_path = JSON_OUTPUT, has_fingerprint = True, dist_threshold = DIST_THRESHOLD):
     db = CheBi2(DB_PATH)
@@ -121,14 +121,14 @@ def load_clusters(file_path = JSON_OUTPUT):
 if __name__ == "__main__":
     ontology = load_ontology()
     
-    th = 0.32
-    sim_kernel = OntologySimilarity(ontology)
-    output = f"clusters_ontology_t{th}.json"
+    th = 0.75
+    sim_kernel = CWLKernel()
+    output = f"clusters_ontology_t0.7.json"
     
     run_clustering_and_save(
         sim_kernel=sim_kernel,
         save_path=output,
-        has_fingerprint=False,
+        has_fingerprint=True,
         dist_threshold=th 
     )
     

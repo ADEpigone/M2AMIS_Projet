@@ -97,10 +97,10 @@ def analyze_family_purity(family_name_or_id: str, ontology, molecules: list, clu
     print(f"\t- Médiane : {np.median(ratios):.1%}")
 
 if __name__ == "__main__":
-    cluster_map = load_clusters(file_path = "clusters_ontology.json")
+    cluster_map = load_clusters(file_path = "clusters_ontology_t0.7.json")
     ontology = load_ontology()
 
     chebi_db = CheBi2(DB_PATH)
     molecules = list(chebi_db.get_all_mols())
 
-    analyze_family_purity("flavonoid", ontology, molecules, cluster_map)
+    analyze_family_purity("flavonoids", ontology, molecules, cluster_map)
