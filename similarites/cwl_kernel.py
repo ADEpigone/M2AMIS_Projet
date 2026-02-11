@@ -12,10 +12,24 @@ import math
 from itertools import combinations
 
 class CWLKernel(BaseSimilarityFromFingerprint):
-    def __init__(self, iterations: int = 3, max_cycle_length: int = 8, similarity=DataStructs.TanimotoSimilarity, n_bits=2048):
+    def __init__(
+        self,
+        iterations: int = 3,
+        max_cycle_length: int = 4,
+        similarity=DataStructs.TanimotoSimilarity,
+        n_bits=8192,
+        n_hashes: int = 2,
+        count_cap: int = 64,
+        discount: float = 1.5,
+    ):
         super().__init__(similarity=similarity, n_bits=n_bits)
         self.iterations = iterations
         self.max_cycle_length = max_cycle_length
+        self.n_hashes = n_hashes
+        self.count_cap = count_cap
+        if discount <= 0:
+            raise ValueError("discount must be > 0")
+        self.discount = float(discount)
 
     def calculate_fingerprint(self, g: MoleculeGraph) -> DataStructs:
         """
@@ -190,6 +204,26 @@ class CWLKernel(BaseSimilarityFromFingerprint):
     def _hash(self, signature: str) -> str:
         return hashlib.sha1(signature.encode('utf-8')).hexdigest()
 
+    def _hash_to_index(self, signature: str) -> int:
+        # Hash deterministe pour stabiliser les empreintes.
+        return int(hashlib.sha1(signature.encode('utf-8')).hexdigest(), 16) % self.n_bits
+
+    def _counter_to_fingerprint(self, counter: Counter) -> DataStructs:
+        """
+        Encode un histogramme en bitvect en gardant un peu d'information de comptage.
+        Chaque feature est projetee sur plusieurs bits (n_hashes), et le comptage est cappe.
+        """
+        bit_vect = DataStructs.ExplicitBitVect(self.n_bits)
+        for key, count in counter.items():
+            if count <= 0:
+                continue
+            capped = min(int(round(count)), self.count_cap)
+            for c in range(capped):
+                for h in range(self.n_hashes):
+                    idx = self._hash_to_index(f"{key}:{c}:{h}")
+                    bit_vect.SetBit(idx)
+        return bit_vect
+
     def _compute_histo(self, g: MoleculeGraph) -> Counter:
         """
         Cellular WL : on raffine itérativement les labels des 0-cells (nœuds),
@@ -199,12 +233,21 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         edge_labels, node_to_edges, edge_to_nodes, edge_neighbors = self._build_edge_structures(g)
         face_labels, face_boundary, edge_to_faces, face_neighbors = self._build_face_structures(g, edge_labels)
 
-        all_labels = []
-        all_labels.extend(f"0c_{l}" for l in node_labels.values())
-        all_labels.extend(f"1c_{l}" for l in edge_labels.values())
-        all_labels.extend(f"2c_{l}" for l in face_labels.values())
+        histo = Counter()
+
+        def _add_labels(labels, weight):
+            if weight <= 0:
+                return
+            for label in labels:
+                histo[label] += weight
+
+        weight = 1.0
+        _add_labels((f"0c_{l}" for l in node_labels.values()), weight)
+        _add_labels((f"1c_{l}" for l in edge_labels.values()), weight)
+        _add_labels((f"2c_{l}" for l in face_labels.values()), weight)
 
         for _ in range(self.iterations):
+            weight /= self.discount
             new_node_labels = {}
             for node in g.nodes:
                 label_u = node_labels[node.id]
@@ -263,11 +306,11 @@ class CWLKernel(BaseSimilarityFromFingerprint):
             edge_labels = new_edge_labels
             face_labels = new_face_labels
 
-            all_labels.extend(f"0c_{l}" for l in node_labels.values())
-            all_labels.extend(f"1c_{l}" for l in edge_labels.values())
-            all_labels.extend(f"2c_{l}" for l in face_labels.values())
+            _add_labels((f"0c_{l}" for l in node_labels.values()), weight)
+            _add_labels((f"1c_{l}" for l in edge_labels.values()), weight)
+            _add_labels((f"2c_{l}" for l in face_labels.values()), weight)
 
-        return Counter(all_labels)
+        return histo
 
 
 if __name__ == "__main__":
