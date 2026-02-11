@@ -1,4 +1,8 @@
 from typing import NamedTuple
+from functools import lru_cache
+
+from rdkit import Chem
+from rdkit.Chem import Crippen, Descriptors, rdMolDescriptors
 
 # https://benhoyt.com/writings/python-pattern-matching/
 # énorme masterclass j'avais envie de tenter
@@ -72,67 +76,119 @@ class MoleculeGraph:
         #à faire
         pass
 
-    @classmethod
-    def from_molfile(MoleculeGraph, path, chebi_id=None):
-        nbNodes = 0
-        nbEdges = 0
-        find = False
-        i = 1
-        listNodes = []
-        listEdges = []
-        tempAtomes = set()
-        tempLink = set()
-        with open(path) as f:
-            moltext = f.read()
-            for line in moltext.splitlines():
-                splitted = line.split()
-                if not find:
-                    if len(splitted) < 2:
-                        continue
-                    if splitted[0].isdigit() and splitted[1].isdigit():
-                        nbNodes, nbEdges = int(splitted[0]), int(splitted[1])
-                        find = True
-                else:
-                    if i <= nbNodes:
-                        listNodes.append(Node(i, splitted[3]))
-                        tempAtomes.add(splitted[3])
-                    elif i <= nbNodes + nbEdges:
-                        listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], int(splitted[2])))
-                        tempLink.add(splitted[2])
-                    i += 1
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def _rdkit_props_from_molblock(molblock: str) -> dict:
+        # Cache calculs RDKit a partir du molblock.
+        if not molblock:
+            return {}
+        mol = Chem.MolFromMolBlock(molblock, sanitize=True)
+        if mol is None:
+            return {}
+        return {
+            "logP": float(Crippen.MolLogP(mol)),
+            "tpsa": float(rdMolDescriptors.CalcTPSA(mol)),
+            "mol_wt": float(Descriptors.MolWt(mol)),
+        }
+
+    @staticmethod
+    @lru_cache(maxsize=2048)
+    def _molblock_from_smiles(smiles: str) -> str:
+        if not smiles:
+            return ""
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return ""
+        return Chem.MolToMolBlock(mol)
+
+    def get_properties(self) -> dict:
+        if not self.mol:
+            return {}
+        return self._rdkit_props_from_molblock(self.mol)
+
+    @staticmethod
+    def _get_atom_label_rich(atom) -> str:
+        """
+        Symbole + H + Aromaticité.
         
-
-        g = MoleculeGraph(listNodes, listEdges, mol_file=moltext, chebi_id=chebi_id)
-        g.setNbDiffAtome(len(tempAtomes))
-        g.setNbDiffLink(len(tempLink))
-
-        return g
+        Ex: "C_h1_a1" (au lieu de "C_d3_h1_a1_c0")
+        """
+        symbol = atom.GetSymbol()
+        
+        # Le degré est implicite dans le graphe, on le retire du label dur.
+        # degree = atom.GetTotalDegree() 
+        
+        # Les H sont cruciaux pour les donneurs/accepteurs (OH vs =O)
+        hs = atom.GetTotalNumHs() 
+        
+        # L'aromaticité est cruciale pour la rigidité/solubilité
+        is_arom = "1" if atom.GetIsAromatic() else "0"
+        
+        # La charge est souvent gérée par le contexte (N+ a 4 voisins)
+        # charge = atom.GetFormalCharge()
+        
+        return f"{symbol}_h{hs}_a{is_arom}"
 
     @classmethod
-    def from_moltext(MoleculeGraph, moltext, chebi_id=None):
-        nbNodes = 0
-        nbEdges = 0
-        find = False
-        i = 1
-        listNodes = []
-        listEdges = []
-        for line in moltext.splitlines():
-            splitted = line.split()
-            #print(splitted)
-            if not find:
-                if len(splitted) < 2:
-                    continue
-                if splitted[0].isdigit() and splitted[1].isdigit():
-                    nbNodes, nbEdges = int(splitted[0]), int(splitted[1])
-                    find = True
-            else:
-                if i <= nbNodes:
-                    listNodes.append(Node(i, splitted[3]))
-                elif i <= nbNodes + nbEdges:
-                    listEdges.append(Edge(listNodes[int(splitted[0]) - 1], listNodes[int(splitted[1]) - 1], splitted[2]))
-                i += 1
+    def from_moltext(cls, moltext: str, chebi_id=None):
+        """
+        Parse le bloc MOL avec RDKit pour extraire une topologie riche.
+        """
+        if not moltext:
+            return cls([], [], mol_file=moltext, chebi_id=chebi_id)
 
-        return MoleculeGraph(listNodes, listEdges, mol_file=moltext, chebi_id=chebi_id)
+        # 1. Parsing RDKit
+        mol = Chem.MolFromMolBlock(moltext, sanitize=True, removeHs=False)
+        
+        # Si le molblock est pourri, fallback ou erreur (ici on renvoie vide)
+        if mol is None:
+            # Optionnel: Essayer sans sanitize si ça plante souvent
+             mol = Chem.MolFromMolBlock(moltext, sanitize=False, removeHs=False)
+        
+        if mol is None:
+            return cls([], [], mol_file=moltext, chebi_id=chebi_id)
+
+        # 2. Création des Nodes Enrichis
+        rdkit_nodes = {} # Map idx RDKit -> Node object
+        node_list = []
+        
+        for atom in mol.GetAtoms():
+            idx = atom.GetIdx()
+            # C'EST LA QUE LA MAGIE OPERE : LABEL RICHE
+            label = cls._get_atom_label_rich(atom) 
+            
+            # Note: RDKit idx commence à 0, tes ids précédents commençaient à 1
+            # On garde 0-indexed c'est plus standard, ou atom.GetIdx()+1 si tu veux garder la compatibilité legacy
+            n = Node(idx, label)
+            rdkit_nodes[idx] = n
+            node_list.append(n)
+
+        # 3. Création des Edges
+        edge_list = []
+        for bond in mol.GetBonds():
+            idx_u = bond.GetBeginAtomIdx()
+            idx_v = bond.GetEndAtomIdx()
+            
+            u = rdkit_nodes[idx_u]
+            v = rdkit_nodes[idx_v]
+            
+            # Enrichissement possible du lien aussi (Single/Double/Aromatic)
+            btype = str(bond.GetBondType())
+            
+            edge_list.append(Edge(u, v, btype))
+
+        return cls(node_list, edge_list, mol_file=moltext, chebi_id=chebi_id)
+
+    @classmethod
+    def from_molfile(cls, path: str, chebi_id=None):
+        with open(path, "r") as f:
+            moltext = f.read()
+        return cls.from_moltext(moltext, chebi_id=chebi_id)
+
+    @classmethod
+    def from_smiles(cls, smiles: str, chebi_id=None):
+        moltext = cls._molblock_from_smiles(smiles)
+        return cls.from_moltext(moltext, chebi_id=chebi_id)
 
 if __name__ == "__main__":
     n1 = Node(1, "C")
