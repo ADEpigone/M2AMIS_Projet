@@ -46,6 +46,8 @@ def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     response = requests.head(url)
     remote_db_date = response.headers.get('Last-Modified').split()[1:4]
 
+    info_date['local_path'] = local_db_date_path
+    info_date['remote_date'] = remote_db_date
     os.makedirs(os.path.dirname(local_db_date_path), exist_ok=True)
     if os.path.exists(local_db_date_path):
         with open(local_db_date_path, "r") as f:
@@ -248,6 +250,7 @@ if __name__ == "__main__":
     print(f"Parents: {props['parents']}")
     print(f"Profondeur: {props['depth']}")
     print(f"Relationships: {props['relationships']}")
-    print("Props : ", props)
+    print(f"Rôles : {props}")
+    print(ontology.get_node('CHEBI:16236').get_roles())
 
     print(ontology.get_lca("CHEBI:15377", "CHEBI:16236"))

@@ -96,12 +96,16 @@ def _commit_term(tree: OntologyTree, term: dict):
     # relationships
     for rel_type, target_id in term.get("relationships", []):
         node.add_relationship(rel_type, target_id)
+        if rel_type in {"has_role", "RO:0000087"}:
+            node.add_role(target_id)
 
 
 def _parse_property_value(node: OntologyNode, pv_str: str):
     """
     Parse une ligne property_value OBO.
     Ex: http://purl.obolibrary.org/obo/chebi/formula "C2H6O" xsd:string
+    
+    Propriétés extraites : formula, mass, charge, monoisotopicMass, smiles, inchi, inchikey
     """
     parts = pv_str.split('"')
     if len(parts) >= 2:
@@ -109,4 +113,12 @@ def _parse_property_value(node: OntologyNode, pv_str: str):
         prop_value = parts[1]
         # Extraire le nom court de la propriété
         prop_name = prop_uri.rsplit("/", 1)[-1] if "/" in prop_uri else prop_uri
+        
+        # Convertir les valeurs numériques
+        if prop_name in ['mass', 'monoisotopicMass', 'charge']:
+            try:
+                prop_value = float(prop_value)
+            except (ValueError, TypeError):
+                pass
+        
         node.add_relationship(prop_name, prop_value)

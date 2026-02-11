@@ -11,6 +11,7 @@ class OntologyNode:
         self.definition = definition
         self.synonyms: list[str] = []
         self.properties: dict[str, list[str]] = {}  # relationship type -> list of target ids
+        self.roles: set[str] = set()
         self.parents: list[OntologyNode] = []  # is_a parents
         self.children: list[OntologyNode] = []
 
@@ -24,6 +25,15 @@ class OntologyNode:
         if rel_type not in self.properties:
             self.properties[rel_type] = []
         self.properties[rel_type].append(target_id)
+
+    def add_role(self, role_id: str):
+        self.roles.add(role_id)
+
+    def has_role(self, role_id: str) -> bool:
+        return role_id in self.roles
+
+    def get_roles(self) -> set[str]:
+        return set(self.roles)
 
     def get_ancestors(self) -> set[str]:
         """Retourne tous les ancêtres (transitivement) via is_a."""
