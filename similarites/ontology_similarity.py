@@ -5,11 +5,8 @@ from graph import MoleculeGraph
 from similarites.base.graph_similarity import BaseGraphSimilarity
 
 class OntologySimilarity(BaseGraphSimilarity):
-    """
-    Version SIMPLE utilisant ton get_lca existant.
-    """
     
-    def __init__(self, ontology, decay_factor=0.15):
+    def __init__(self, ontology, decay_factor=0.1):
         self.ontology = ontology
         self.decay_factor = decay_factor
         
