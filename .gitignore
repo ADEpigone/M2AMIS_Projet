@@ -217,3 +217,10 @@ __marimo__/
 
 #VS Code
 .vscode/
+
+*.db
+*.json
+*.obo
+*.txt
+*.png
+*.mol
