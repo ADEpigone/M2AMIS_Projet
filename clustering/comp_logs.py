@@ -3,9 +3,9 @@ import json
 import os
 import random
 from datetime import datetime
-from math import sqrt
 import time
 import numpy as np
+from rdkit import DataStructs
 
 from similarites.cwl_kernel import CWLKernel
 from graph import MoleculeGraph
@@ -167,6 +167,168 @@ def _evaluate_kernel(valid_mols, vals, kernel, trials):
     }
 
 
+def _fp_to_numpy(fp):
+    arr = np.zeros((fp.GetNumBits(),), dtype=np.int8)
+    DataStructs.ConvertToNumpyArray(fp, arr)
+    return arr.astype(np.float32)
+
+
+def _build_xy_for_fingerprint(molecules, fp_name):
+    if fp_name == "cwl":
+        kernel = CWLKernel(similarity="tanimoto")
+    else:
+        kernel = BuiltinSimilarity(fingerprint=fp_name, similarity="tanimoto")
+
+    X = []
+    y = []
+    skipped = 0
+
+    for m in molecules:
+        props = m.get("properties", {})
+        try:
+            target = float(props.get("logS"))
+        except (TypeError, ValueError):
+            skipped += 1
+            continue
+
+        try:
+            fp = kernel.calculate_fingerprint(m["graph"])
+            vec = _fp_to_numpy(fp)
+        except Exception:
+            skipped += 1
+            continue
+
+        X.append(vec)
+        y.append(target)
+
+    if not X:
+        return np.empty((0, 0), dtype=np.float32), np.empty((0,), dtype=np.float32), skipped
+
+    return np.vstack(X), np.array(y, dtype=np.float32), skipped
+
+
+def _agg_metric(values):
+    arr = np.array(values, dtype=float)
+    return {
+        "n": int(len(arr)),
+        "mean": float(arr.mean()) if len(arr) > 0 else float("nan"),
+        "std": float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
+    }
+
+
+def _evaluate_regressor_cv(X, y, splits, model_name):
+    from sklearn.dummy import DummyRegressor
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.linear_model import Ridge
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+    if model_name == "dummy":
+        build = lambda: DummyRegressor(strategy="mean")
+    elif model_name == "ridge":
+        build = lambda: Ridge(alpha=1.0)
+    elif model_name == "rf":
+        build = lambda: RandomForestRegressor(
+            n_estimators=500,
+            random_state=42,
+            n_jobs=-1,
+        )
+    else:
+        raise ValueError(f"Modele inconnu: {model_name}")
+
+    folds = []
+    mae_vals = []
+    rmse_vals = []
+    r2_vals = []
+
+    for fold_id, (tr, te) in enumerate(splits, start=1):
+        model = build()
+        model.fit(X[tr], y[tr])
+        pred = model.predict(X[te])
+
+        mae = float(mean_absolute_error(y[te], pred))
+        rmse = float(np.sqrt(mean_squared_error(y[te], pred)))
+        r2 = float(r2_score(y[te], pred))
+
+        folds.append({
+            "fold": fold_id,
+            "mae": mae,
+            "rmse": rmse,
+            "r2": r2,
+        })
+        mae_vals.append(mae)
+        rmse_vals.append(rmse)
+        r2_vals.append(r2)
+
+    return {
+        "folds": folds,
+        "mae": _agg_metric(mae_vals),
+        "rmse": _agg_metric(rmse_vals),
+        "r2": _agg_metric(r2_vals),
+    }
+
+
+def compare_prediction_benchmark(
+    molecules,
+    experiment_name="esol_prediction",
+    fingerprint_names=("morgan", "rdkit", "cwl"),
+    model_names=("dummy", "ridge", "rf"),
+    n_splits=5,
+    output_dir="clustering/results",
+):
+    from sklearn.model_selection import KFold
+
+    results = {
+        "experiment_name": experiment_name,
+        "target": "logS",
+        "n_folds": n_splits,
+        "fingerprint_results": [],
+    }
+
+    for fp_name in fingerprint_names:
+        print("\n" + "=" * 70)
+        print(f"PREDICTION | FP={fp_name} | TARGET=logS")
+        print("=" * 70)
+
+        t0 = time.time()
+        X, y, skipped = _build_xy_for_fingerprint(molecules, fp_name)
+        if len(X) == 0:
+            print(f"Aucun echantillon valide pour {fp_name}.")
+            continue
+
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        splits = list(kf.split(X, y))
+
+        fp_result = {
+            "fingerprint": fp_name,
+            "n_samples": int(len(y)),
+            "n_features": int(X.shape[1]),
+            "skipped": int(skipped),
+            "models": {},
+        }
+
+        for model_name in model_names:
+            model_stats = _evaluate_regressor_cv(X, y, splits, model_name)
+            fp_result["models"][model_name] = model_stats
+            print(
+                f"{model_name:>5} | "
+                f"MAE={model_stats['mae']['mean']:.3f}±{model_stats['mae']['std']:.3f} | "
+                f"RMSE={model_stats['rmse']['mean']:.3f}±{model_stats['rmse']['std']:.3f} | "
+                f"R2={model_stats['r2']['mean']:.3f}±{model_stats['r2']['std']:.3f}"
+            )
+
+        fp_result["elapsed_sec"] = float(time.time() - t0)
+        results["fingerprint_results"].append(fp_result)
+
+    os.makedirs(output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = os.path.join(output_dir, f"{experiment_name}_tuning_{timestamp}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=True, indent=2)
+
+    print(f"\nResultats prediction sauvegardes dans {out_path}")
+    return out_path
+
+
 def compare_similarity_kernels(
     molecules,
     prop,
@@ -277,4 +439,12 @@ if __name__ == "__main__":
         similarity_names=similarity_names,
         builtin_fingerprints=builtin_fingerprints,
         sample_frac=0.8,
+    )
+
+    compare_prediction_benchmark(
+        molecules,
+        experiment_name="esol_prediction",
+        fingerprint_names=("morgan", "rdkit", "cwl"),
+        model_names=("dummy", "ridge", "rf"),
+        n_splits=5,
     )
