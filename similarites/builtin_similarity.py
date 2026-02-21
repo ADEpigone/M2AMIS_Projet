@@ -40,11 +40,3 @@ class BuiltinSimilarity(BaseSimilarityFromFingerprint):
         m = Chem.MolFromMolBlock(mol, sanitize=True)
 
         return self.fingerprint.GetFingerprint(m)
-
-#BAH DU COUP CECI MARCHE PAS : IL FAUT PASSER PAR DB QUAND EWAN AURA MERGE
-# PUNAISE MERGE SRX
-# mais l'use est la même j'ai juste encapsulé
-
-#esomeprazole = Chem.MolFromSmiles('COc1ccc2nc([nH]c2c1)[S@](=O)Cc1ncc(C)c(OC)c1C')
-#lansoprazole = Chem.MolFromSmiles('FC(F)(F)COc1ccnc(c1C)CS(=O)c2[nH]c3ccccc3n2')
-#print(getSimilarity(esomeprazole, lansoprazole, FINGERPRINTS["morgan"](2)))

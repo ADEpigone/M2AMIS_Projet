@@ -133,7 +133,7 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         Retourne une liste de tuples de node ids (triés de manière canonique).
         """
         adj = defaultdict(set)
-        for node_id, edges in g.edges.items():
+        for _, edges in g.edges.items():
             for edge in edges:
                 adj[edge.u.id].add(edge.v.id)
                 adj[edge.v.id].add(edge.u.id)
@@ -205,7 +205,6 @@ class CWLKernel(BaseSimilarityFromFingerprint):
         return hashlib.sha1(signature.encode('utf-8')).hexdigest()
 
     def _hash_to_index(self, signature: str) -> int:
-        # Hash deterministe pour stabiliser les empreintes.
         return int(hashlib.sha1(signature.encode('utf-8')).hexdigest(), 16) % self.n_bits
 
     def _counter_to_fingerprint(self, counter: Counter) -> DataStructs:
