@@ -3,9 +3,7 @@ import os
 import importlib.util
 import gzip
 import io
-import Chebi.CheBi2 as Chebi2
 from tqdm import tqdm
-from cli_plugins.base.CLI_plugin import CLIPlugin
 from rdkit import Chem
 from rdkit import RDLogger
 
@@ -20,6 +18,12 @@ ONTOLOGY_UPDATE = "DB_updates\\ontology_last_update.txt"
 ONTOLOGY_CACHE = "DB_updates\\chebi_ontology.obo"
 
 _ontology_tree_cache = None
+
+def check_none(value, id):
+    if value is None:
+        print(f"L'ID {id} n'est pas une molécule valide pour CheBi")
+        return True
+    return False
 
 def get_mol_lite(url=MOL_LITE_URL):
     """
@@ -65,6 +69,7 @@ def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     return True
 
 def prep_db_load(response_content, info_date=None):
+    import Chebi.CheBi2 as Chebi2
     if response_content is None:
         raise Exception("Réponse vide")
     

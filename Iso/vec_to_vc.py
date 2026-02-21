@@ -13,15 +13,17 @@ def to_vc(graph : MoleculeGraph, debug = False):
     # tri des couleurs et mapping vers int
     colors = sorted(list(colorsTemp))
     colorsToInt = {color : i + 1 for i, color in enumerate(colors)}
-    print("Colors : " + str(colors))
-    print("Colortoint : " + str(colorsToInt))
+    if debug == True:
+        print("Colors : " + str(colors))
+        print("Colortoint : " + str(colorsToInt))
 
     nbOfColors = len(colors)
     if nbOfColors == 0:
         nbOfLayers = 1
     else:
         nbOfLayers = nbOfColors.bit_length()
-    print("Nb of layers : " + str(nbOfLayers))
+    if debug == True:
+        print("Nb of layers : " + str(nbOfLayers))
 
     N = len(graph.nodes)
     newNodes = []

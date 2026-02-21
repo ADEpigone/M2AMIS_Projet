@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
 import sqlite3
+
+from utils import get_mol_file
 
 class CheBi2:
     def __init__(self, bd_link = None):
@@ -34,12 +37,20 @@ class CheBi2:
     def get_mol(self, chebi_id):
         if not self.cursor:
             raise Exception("Database connection is not established.")
-
         self.cursor.execute('SELECT mol_file FROM chebi2 WHERE chebi_id = ?', (chebi_id,))
         result = self.cursor.fetchone()
         if result:
-            return result[0]
-        return None
+            mol = result[0]
+
+            return mol
+        mol = get_mol_file(chebi_id)
+        if mol:
+            #on l'insère
+            self.cursor.execute('INSERT OR REPLACE INTO chebi2 (chebi_id, mol_name, mol_file) VALUES (?, ?, ?)', (chebi_id, None, mol))
+
+            self.conn.commit()
+
+        return mol
     
     def get_all_mols(self):
         if not self.cursor:
