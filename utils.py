@@ -11,13 +11,34 @@ from Chebi.ontology.parser import parse_obo
 from Chebi.ontology.ontology_tree import OntologyTree
 
 MOL_LITE_URL = "https://ftp.ebi.ac.uk/pub/databases/chebi/SDF/chebi_lite.sdf.gz"
-MOL_LITE_UPDATE = "DB_updates\\mol_lite_last_update.txt"
+MOL_LITE_UPDATE = os.path.join("DB_updates", "mol_lite_last_update.txt")
 
 ONTOLOGY_OBO_URL = "https://ftp.ebi.ac.uk/pub/databases/chebi/ontology/chebi.obo.gz"
-ONTOLOGY_UPDATE = "DB_updates\\ontology_last_update.txt"
-ONTOLOGY_CACHE = "DB_updates\\chebi_ontology.obo"
+ONTOLOGY_UPDATE = os.path.join("DB_updates", "ontology_last_update.txt")
+ONTOLOGY_CACHE = os.path.join("DB_updates", "chebi_ontology.obo")
 
 _ontology_tree_cache = None
+
+def build_kernel(kernel_name: str, similarity: str):
+    from similarites.builtin_similarity import BuiltinSimilarity
+    from similarites.cwl_kernel import CWLKernel
+    from similarites.ontology_similarity import OntologySimilarity
+    if kernel_name == "cwl":
+        return CWLKernel(similarity=similarity), True
+    if kernel_name in {"morgan", "rdkit"}:
+        return BuiltinSimilarity(fingerprint=kernel_name, similarity=similarity), True
+    if kernel_name == "ontology":
+        ontology = load_ontology()
+        return OntologySimilarity(ontology), False
+    raise ValueError(f"Kernel inconnu: {kernel_name}")
+
+def ensure_chebi_db_up_to_date():
+    print("Vérification de la base locale ChEBI...")
+    info_date = {}
+    if has_db_changed(MOL_LITE_URL, MOL_LITE_UPDATE, info_date):
+        content = get_mol_lite(MOL_LITE_URL)
+        prep_db_load(content, info_date)
+    print("Base locale ChEBI prête.")
 
 def print_ids(id1, id2):
     chebi_id1 = id1 if str(id1).upper().startswith("CHEBI:") else f"CHEBI:{id1}"
@@ -53,14 +74,20 @@ def get_mol_lite(url=MOL_LITE_URL):
 def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     if url is None or local_db_date_path is None:
         raise Exception(f"URL et/ou DB_file_version manquant ({url=}, {local_db_date_path=})")
+
+    normalized_local_path = os.path.normpath(str(local_db_date_path).replace("\\", os.sep))
+
     response = requests.head(url)
     remote_db_date = response.headers.get('Last-Modified').split()[1:4]
 
-    info_date['local_path'] = local_db_date_path
+    info_date['local_path'] = normalized_local_path
     info_date['remote_date'] = remote_db_date
-    os.makedirs(os.path.dirname(local_db_date_path), exist_ok=True)
-    if os.path.exists(local_db_date_path):
-        with open(local_db_date_path, "r") as f:
+    local_dir = os.path.dirname(normalized_local_path)
+    if local_dir:
+        os.makedirs(local_dir, exist_ok=True)
+
+    if os.path.exists(normalized_local_path):
+        with open(normalized_local_path, "r") as f:
             local_db_date = f.read().split()
 
         if remote_db_date == local_db_date:
@@ -70,7 +97,7 @@ def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     else:
         print("Pas de DB locale !")
 
-    info_date['local_path'] = local_db_date_path
+    info_date['local_path'] = normalized_local_path
     info_date['remote_date'] = remote_db_date
     return True
 
@@ -133,8 +160,12 @@ def download_and_store_ontology(url=ONTOLOGY_OBO_URL, cache_path=ONTOLOGY_CACHE,
     with gzip.open(io.BytesIO(response.content), 'rb') as f:
         obo_text = f.read().decode('utf-8')
 
-    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    with open(cache_path, 'w', encoding='utf-8') as f:
+    normalized_cache_path = os.path.normpath(str(cache_path).replace("\\", os.sep))
+    cache_dir = os.path.dirname(normalized_cache_path)
+    if cache_dir:
+        os.makedirs(cache_dir, exist_ok=True)
+
+    with open(normalized_cache_path, 'w', encoding='utf-8') as f:
         f.write(obo_text)
 
     # Mise à jour date locale
@@ -152,6 +183,8 @@ def load_ontology(cache_path=ONTOLOGY_CACHE, force_download=False) -> OntologyTr
     Charge l'ontologie ChEBI.
     Télécharge automatiquement si pas en cache ou si mise à jour disponible.
     """
+    normalized_cache_path = os.path.normpath(str(cache_path).replace("\\", os.sep))
+
     global _ontology_tree_cache
     if _ontology_tree_cache is not None and not force_download:
         return _ontology_tree_cache
@@ -163,13 +196,13 @@ def load_ontology(cache_path=ONTOLOGY_CACHE, force_download=False) -> OntologyTr
     try:
         needs_update = has_ontology_changed(info_date=info_date)
     except Exception:
-        needs_update = not os.path.exists(cache_path)
+        needs_update = not os.path.exists(normalized_cache_path)
 
-    if needs_update or force_download or not os.path.exists(cache_path):
-        obo_text = download_and_store_ontology(info_date=info_date)
+    if needs_update or force_download or not os.path.exists(normalized_cache_path):
+        obo_text = download_and_store_ontology(cache_path=normalized_cache_path, info_date=info_date)
     else:
         print("Chargement de l'ontologie depuis le cache local...")
-        with open(cache_path, 'r', encoding='utf-8') as f:
+        with open(normalized_cache_path, 'r', encoding='utf-8') as f:
             obo_text = f.read()
 
     print("Parsing de l'ontologie...")
@@ -230,7 +263,7 @@ def get_all_plugins(path = "./cli_plugins"):
     plugins = []
     for filename in os.listdir(path):
         if not filename.endswith(".py"): continue
-        module_name = filename[:-3]
+        module_name = f"_cli_plugin_{filename[:-3]}"
         module_path = os.path.join(path, filename)
 
         spec = importlib.util.spec_from_file_location(module_name, module_path)

@@ -24,12 +24,20 @@ JSON_OUTPUT = "clusters_data.json"
 MAX_MOLECULES = 10000
 DIST_THRESHOLD = 0.75 # Seuil pour le clustering
 
-def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto"), save_path = JSON_OUTPUT, has_fingerprint = True, dist_threshold = DIST_THRESHOLD):
+def run_clustering_and_save(
+    sim_kernel = CWLKernel(similarity="tanimoto"),
+    save_path = JSON_OUTPUT,
+    has_fingerprint = True,
+    dist_threshold = DIST_THRESHOLD,
+    max_molecules = MAX_MOLECULES,
+):
     db = CheBi2(DB_PATH)
 
     molecules = []
     raw_data = [m for m in db.get_all_mols() if m[2]]
-    raw_data = random.sample(raw_data, MAX_MOLECULES)
+    if max_molecules is not None and max_molecules > 0:
+        sample_size = min(int(max_molecules), len(raw_data))
+        raw_data = random.sample(raw_data, sample_size)
     for chebi_id, mol_name, mol_file in tqdm(raw_data, total=len(raw_data), desc="Parsing"):
         if not mol_file: continue
         try:
@@ -44,7 +52,7 @@ def run_clustering_and_save(sim_kernel = CWLKernel(similarity="tanimoto"), save_
         except Exception:
             continue
 
-        if MAX_MOLECULES and len(molecules) >= MAX_MOLECULES:
+        if max_molecules is not None and max_molecules > 0 and len(molecules) >= int(max_molecules):
             break
     
     print(f"{len(molecules)} molécules prêtes.")

@@ -4,6 +4,7 @@ def to_vc(graph : MoleculeGraph, debug = False):
 
     # récup des couleurs
     colorsTemp = set()
+    print(graph.edges)
     k, values = zip(*graph.edges.items())
 
     for edges in list(values):
