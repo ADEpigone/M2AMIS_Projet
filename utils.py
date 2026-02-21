@@ -1,18 +1,15 @@
+import os
 import csv
 import random
-
-import requests
-import os
 import importlib.util
 import gzip
 import io
-from tqdm import tqdm
-from rdkit import Chem
-from rdkit import RDLogger
-
-import csv
-import os
 import urllib.request
+
+import requests
+from rdkit import Chem, RDLogger
+from tqdm import tqdm
+
 from Chebi.ontology.parser import parse_obo
 from Chebi.ontology.ontology_tree import OntologyTree
 from graph import MoleculeGraph
@@ -29,6 +26,19 @@ DEFAULT_ESOL_URL = "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/del
 
 
 _ontology_tree_cache = None
+
+
+def _normalize_local_path(path: str) -> str:
+    return os.path.normpath(str(path).replace("\\", os.sep))
+
+
+def _write_remote_date(info_date):
+    if not info_date:
+        return
+    if "local_path" not in info_date or "remote_date" not in info_date:
+        return
+    with open(info_date["local_path"], "w") as f:
+        f.write(" ".join(info_date["remote_date"]))
 
 
 
@@ -152,6 +162,7 @@ def check_none(value, id):
         return True
     return False
 
+
 def get_mol_lite(url=MOL_LITE_URL):
     """
     Télécharge le fichier chebi_lite.sdf.gz
@@ -175,13 +186,18 @@ def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     if url is None or local_db_date_path is None:
         raise Exception(f"URL et/ou DB_file_version manquant ({url=}, {local_db_date_path=})")
 
-    normalized_local_path = os.path.normpath(str(local_db_date_path).replace("\\", os.sep))
+    normalized_local_path = _normalize_local_path(local_db_date_path)
 
     response = requests.head(url)
-    remote_db_date = response.headers.get('Last-Modified').split()[1:4]
+    last_modified = response.headers.get("Last-Modified")
+    if not last_modified:
+        print("Header Last-Modified introuvable, update forcée.")
+        return True
+    remote_db_date = last_modified.split()[1:4]
 
-    info_date['local_path'] = normalized_local_path
-    info_date['remote_date'] = remote_db_date
+    if info_date is not None:
+        info_date['local_path'] = normalized_local_path
+        info_date['remote_date'] = remote_db_date
     local_dir = os.path.dirname(normalized_local_path)
     if local_dir:
         os.makedirs(local_dir, exist_ok=True)
@@ -197,8 +213,9 @@ def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     else:
         print("Pas de DB locale !")
 
-    info_date['local_path'] = normalized_local_path
-    info_date['remote_date'] = remote_db_date
+    if info_date is not None:
+        info_date['local_path'] = normalized_local_path
+        info_date['remote_date'] = remote_db_date
     return True
 
 def prep_db_load(response_content, info_date=None):
@@ -218,14 +235,17 @@ def prep_db_load(response_content, info_date=None):
         for mol in suppl:
             pbar.update(1)
             if mol is None: continue  # skip les mol mal formées
-            
+
             try:
-                chebi_id = mol.GetProp('ChEBI ID') if mol.HasProp('ChEBI ID') else None
-                name = mol.GetProp('ChEBI NAME') if mol.HasProp('ChEBI NAME') else None
-                mol_format = Chem.MolToMolBlock(mol) if mol else None
-            except Exception as e:
+                chebi_id = mol.GetProp("ChEBI ID") if mol.HasProp("ChEBI ID") else None
+                name = mol.GetProp("ChEBI NAME") if mol.HasProp("ChEBI NAME") else None
+                if name is None and mol.HasProp("_Name"):
+                    name = mol.GetProp("_Name")
+                mol_block = Chem.MolToMolBlock(mol)
+            except Exception:
                 continue
-            batch.append((chebi_id, name, mol_format))
+
+            batch.append((chebi_id, name, mol_block))
             
             if len(batch) >= 1000:
                 db.update_table(batch)
@@ -236,10 +256,7 @@ def prep_db_load(response_content, info_date=None):
             db.update_table(batch)
         pbar.close()
 
-    # Mise à jour date locale
-    with open(info_date['local_path'], "w") as f:
-        f.write(" ".join(info_date['remote_date']))
-    info_date = None
+    _write_remote_date(info_date)
     print("DB Chebi2 Up To Date !")
 
 
@@ -260,7 +277,7 @@ def download_and_store_ontology(url=ONTOLOGY_OBO_URL, cache_path=ONTOLOGY_CACHE,
     with gzip.open(io.BytesIO(response.content), 'rb') as f:
         obo_text = f.read().decode('utf-8')
 
-    normalized_cache_path = os.path.normpath(str(cache_path).replace("\\", os.sep))
+    normalized_cache_path = _normalize_local_path(cache_path)
     cache_dir = os.path.dirname(normalized_cache_path)
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
@@ -268,11 +285,7 @@ def download_and_store_ontology(url=ONTOLOGY_OBO_URL, cache_path=ONTOLOGY_CACHE,
     with open(normalized_cache_path, 'w', encoding='utf-8') as f:
         f.write(obo_text)
 
-    # Mise à jour date locale
-    if info_date and 'local_path' in info_date and 'remote_date' in info_date:
-        with open(info_date['local_path'], "w") as f:
-            f.write(" ".join(info_date['remote_date']))
-        info_date = None
+    _write_remote_date(info_date)
 
     print("Ontologie ChEBI téléchargée et stockée !")
     return obo_text
@@ -283,7 +296,7 @@ def load_ontology(cache_path=ONTOLOGY_CACHE, force_download=False) -> OntologyTr
     Charge l'ontologie ChEBI.
     Télécharge automatiquement si pas en cache ou si mise à jour disponible.
     """
-    normalized_cache_path = os.path.normpath(str(cache_path).replace("\\", os.sep))
+    normalized_cache_path = _normalize_local_path(cache_path)
 
     global _ontology_tree_cache
     if _ontology_tree_cache is not None and not force_download:
@@ -377,24 +390,3 @@ def get_all_plugins(path = "./cli_plugins"):
                 plugins.append(obj)
     return plugins
 
-if __name__ == "__main__":
-    #H20
-    #print(get_mol_file("15377")) 
-    #print(has_db_changed(MOL_LITE_URL, MOL_LITE_UPDATE))
-    info_date = {}
-    if has_db_changed(MOL_LITE_URL, MOL_LITE_UPDATE, info_date):
-        content = get_mol_lite(MOL_LITE_URL)
-        prep_db_load(content, info_date)
-
-    ontology = load_ontology()
-    
-    props = get_ontology_props("16236", ontology)
-    print(f"Nom: {props['name']}")
-    print(f"Définition: {props['definition']}")
-    print(f"Parents: {props['parents']}")
-    print(f"Profondeur: {props['depth']}")
-    print(f"Relationships: {props['relationships']}")
-    print(f"Rôles : {props}")
-    print(ontology.get_node('CHEBI:16236').get_roles())
-
-    print(ontology.get_lca("CHEBI:15377", "CHEBI:16236"))

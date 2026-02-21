@@ -1,23 +1,36 @@
-
-#Ici on est load dans le dossier d'avant donc il faut se replacer dans plugins
+from Chebi.CheBi2 import CheBi2
 from cli_plugins.base.CLI_plugin import CLIPlugin
-#Mais l'avantage c'est qu'on peut load utils super facilement donc GOATED
-from utils import get_mol_file
+
 
 class GetPlugin(CLIPlugin):
 
-    def __init__(self, parser, **kwargs):
-        super().__init__(parser, command_name="get", help_text = "Récupère le fichier mol d'une molécule à partir de son ID Chebi")
-        self.add_argument("--chebi_id", help_text="L'ID Chebi de la molécule", required=True)
+    def __init__(self, parser, chebi_client: CheBi2 = None, **kwargs):
+        super().__init__(
+            parser,
+            command_name="get",
+            help_text="Récupérer une molécule depuis ChEBI et l'ajouter à chebi2",
+        )
+        self.add_argument("--chebi-id", help_text="ID ChEBI de la molécule", required=True)
+        self.add_argument("--name", help_text="Nom à stocker en base (optionnel)", required=False)
+
+        self.chebi_client = chebi_client
 
     def execute(self, namespace, **kwargs):
+        if self.chebi_client is None:
+            print("Client CheBi2 indisponible.")
+            return
 
         chebi_id = namespace.chebi_id
+        forced_name = namespace.name
 
-        molfile = get_mol_file(chebi_id)
-        if molfile:
-            print(f"Fichier mol pour l'ID Chebi {chebi_id} :")
-            print(molfile)
-            #on return pas jsp quoi faire encore
-        else:
-            print(f"Aucun fichier mol trouvé pour l'ID Chebi {chebi_id}.")
+        print(f"Source sélectionnée: ChEBI ({chebi_id})")
+        print("Récupération de la molécule...")
+        mol_file = self.chebi_client.get_mol(chebi_id)
+        if not mol_file:
+            print(f"Aucune molécule trouvée pour {chebi_id}.")
+            return
+
+        print(f"Préparation insertion DB: chebi_id={chebi_id}, name={forced_name}")
+        print("Mise à jour de la base chebi2...")
+        self.chebi_client.update_table([(chebi_id, forced_name, mol_file)])
+        print(f"Molécule {chebi_id} récupérée depuis ChEBI et stockée dans chebi2.")

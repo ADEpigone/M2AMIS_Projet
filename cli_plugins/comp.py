@@ -1,4 +1,4 @@
-from Chebi.CheBi2 import Chebi2
+from Chebi.CheBi2 import CheBi2
 from cli_plugins.base.CLI_plugin import CLIPlugin
 from graph import MoleculeGraph
 
@@ -8,7 +8,7 @@ from utils import print_ids
 
 class ComparisonPlugin(CLIPlugin):
 
-    def __init__(self, parser, chebi_client : Chebi2, **kwargs):
+    def __init__(self, parser, chebi_client : CheBi2, **kwargs):
         super().__init__(parser, command_name="comp", help_text = "Comparer la similarité de deux molécules")
         self.add_argument("--id1", help_text="L'ID Chebi de la molécule", required=True)
         self.add_argument("--id2", help_text="L'ID Chebi de la molécule", required=True)

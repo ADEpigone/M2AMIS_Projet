@@ -1,12 +1,6 @@
-import csv
-import os
-import random
-import time
-
 import numpy as np
 from rdkit import DataStructs
 
-from graph import MoleculeGraph
 from similarites.builtin_similarity import BuiltinSimilarity
 from similarites.cwl_kernel import CWLKernel
 from sklearn.ensemble import RandomForestRegressor
