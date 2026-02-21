@@ -2,18 +2,18 @@ import numpy as np
 
 from Chebi.CheBi2 import CheBi2
 from cli_plugins.base.CLI_plugin import CLIPlugin
-from clustering.clusters import (
+from analysis.clusters import (
 	DIST_THRESHOLD,
 	JSON_OUTPUT,
 	MAX_MOLECULES,
 	load_clusters,
 	run_clustering_and_save,
 )
-from clustering.dominante_families import (
+from analysis.dominante_families import (
 	dominant_ratios_for_all_clusters,
 	plot_cumulative_curve,
 )
-from clustering.purity_analysis import analyze_family_purity
+from analysis.purity_analysis import analyze_family_purity
 from similarites.builtin_similarity import BuiltinSimilarity
 from similarites.cwl_kernel import CWLKernel
 from similarites.ontology_similarity import OntologySimilarity
