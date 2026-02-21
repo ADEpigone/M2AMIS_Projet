@@ -1,6 +1,5 @@
 import argparse
 
-from Chebi.CheBi import Chebi
 from Chebi.CheBi2 import CheBi2
 from utils import *
 
