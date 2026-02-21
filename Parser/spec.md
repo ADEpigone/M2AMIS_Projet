@@ -1,4 +1,0 @@
--Parser le fichier texte, le transformer en graphe coloré sur les sommets en fonctions des atomes. (matrice d'adjacence ou matrice creuse)
--Pour utiliser la librairie Nauty, on rajoute les hydrogènes et on oublie les double/triples liaisons ou alors on sépares les doubles/triples liaisons en rajoutant des sommets intermédiaires.
--Différentes façon de représenté les molécules en fonctions des besoins, coloré les arcs pour les double/triples, prendre ou ne pas prendre en compte les Hydrogènes implicites.
--Utilisation de la librairy python Rdkit qui permet de faire plein de trucs sur les molécules.
