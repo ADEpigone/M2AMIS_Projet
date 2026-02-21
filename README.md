@@ -78,9 +78,9 @@ M2AMIS_Projet/
 - **Python 3.10+**
 - Accès internet (pour télécharger la base ChEBI et le dataset ESOL)
 
-### 3) Dépendances
+### 2) Dépendances
 
-Le projet s'appuie sur des bibliothèques scientifiques standards en Python :
+Le projet s'appuie sur les bibliothèques suivantes :
 
 ```bash
 pip install rdkit numpy scipy scikit-learn tqdm requests matplotlib
@@ -88,7 +88,7 @@ pip install rdkit numpy scipy scikit-learn tqdm requests matplotlib
 
 ---
 
-## Démarrage Rapide (Quickstart)
+## Quickstart
 
 Le point d'entrée unique est le script `mol_cli.py`.
 
@@ -120,7 +120,7 @@ python3 ./mol_cli.py comp_prediction --operation all --dataset datasets/esol.csv
 
 ---
 
-## Commandes CLI Détaillées
+## Guide du CLI
 
 IMPORTANT : https://www.ebi.ac.uk/chebi/CHEBI:id ou CHEBI:id ou id seul ne font pas de différence dans les commandes du CLI.
 
