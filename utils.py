@@ -1,6 +1,7 @@
 import os
 import csv
 import random
+import re
 import importlib.util
 import gzip
 import io
@@ -28,8 +29,40 @@ DEFAULT_ESOL_URL = "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/del
 _ontology_tree_cache = None
 
 
-def _normalize_local_path(path: str) -> str:
+def normalize_local_path(path: str) -> str:
     return os.path.normpath(str(path).replace("\\", os.sep))
+
+def normalize_chebi_id(raw_value):
+    value = str(raw_value).strip()
+    if not value:
+        return value
+
+    upper = value.upper()
+    if upper.startswith("CHEBI:"):
+        suffix = value.split(":", 1)[1].strip()
+        return f"CHEBI:{suffix}"
+    if upper.startswith("CHEBI_"):
+        suffix = value.split("_", 1)[1].strip()
+        return f"CHEBI:{suffix}"
+
+    chebi_tag_match = re.search(r"CHEBI[:_]\s*(\d+)", value, flags=re.IGNORECASE)
+    if chebi_tag_match:
+        return f"CHEBI:{chebi_tag_match.group(1)}"
+
+    query_match = re.search(r"[?&]chebiId=([^&#]+)", value, flags=re.IGNORECASE)
+    if query_match:
+        return normalize_chebi_id(query_match.group(1))
+
+    lower = value.lower()
+    if "chebi" in lower:
+        trailing_id_match = re.search(r"/(\d+)(?:[/?#].*)?$", value)
+        if trailing_id_match:
+            return f"CHEBI:{trailing_id_match.group(1)}"
+
+    if value.isdigit():
+        return f"CHEBI:{value}"
+
+    return f"CHEBI:{value}"
 
 
 def _write_remote_date(info_date):
@@ -151,8 +184,8 @@ def ensure_chebi_db_up_to_date():
     print("Base locale ChEBI prête.")
 
 def print_ids(id1, id2):
-    chebi_id1 = id1 if str(id1).upper().startswith("CHEBI:") else f"CHEBI:{id1}"
-    chebi_id2 = id2 if str(id2).upper().startswith("CHEBI:") else f"CHEBI:{id2}"
+    chebi_id1 = normalize_chebi_id(id1)
+    chebi_id2 = normalize_chebi_id(id2)
     print(f"Molécule 1: https://www.ebi.ac.uk/chebi/searchId.do?chebiId={chebi_id1}")
     print(f"Molécule 2: https://www.ebi.ac.uk/chebi/searchId.do?chebiId={chebi_id2}")
 
@@ -186,7 +219,7 @@ def has_db_changed(url=None, local_db_date_path=None, info_date=None):
     if url is None or local_db_date_path is None:
         raise Exception(f"URL et/ou DB_file_version manquant ({url=}, {local_db_date_path=})")
 
-    normalized_local_path = _normalize_local_path(local_db_date_path)
+    normalized_local_path = normalize_local_path(local_db_date_path)
 
     response = requests.head(url)
     last_modified = response.headers.get("Last-Modified")
@@ -277,7 +310,7 @@ def download_and_store_ontology(url=ONTOLOGY_OBO_URL, cache_path=ONTOLOGY_CACHE,
     with gzip.open(io.BytesIO(response.content), 'rb') as f:
         obo_text = f.read().decode('utf-8')
 
-    normalized_cache_path = _normalize_local_path(cache_path)
+    normalized_cache_path = normalize_local_path(cache_path)
     cache_dir = os.path.dirname(normalized_cache_path)
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
@@ -296,7 +329,7 @@ def load_ontology(cache_path=ONTOLOGY_CACHE, force_download=False) -> OntologyTr
     Charge l'ontologie ChEBI.
     Télécharge automatiquement si pas en cache ou si mise à jour disponible.
     """
-    normalized_cache_path = _normalize_local_path(cache_path)
+    normalized_cache_path = normalize_local_path(cache_path)
 
     global _ontology_tree_cache
     if _ontology_tree_cache is not None and not force_download:
@@ -332,9 +365,8 @@ def get_ontology_props(chebi_id: str, ontology: OntologyTree = None) -> dict:
     if ontology is None:
         ontology = load_ontology()
 
-    # Normaliser l'id (accepte "12345" ou "CHEBI:12345")
-    if not chebi_id.startswith("CHEBI:"):
-        chebi_id = f"CHEBI:{chebi_id}"
+    # Normaliser l'id (accepte "12345", "CHEBI:12345" ou URL ChEBI)
+    chebi_id = normalize_chebi_id(chebi_id)
 
     node = ontology.get_node(chebi_id)
     if node is None:

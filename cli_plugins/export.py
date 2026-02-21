@@ -1,4 +1,5 @@
 from cli_plugins.base.CLI_plugin import CLIPlugin
+from utils import normalize_chebi_id
 
 class ExportPlugin(CLIPlugin):
 
@@ -8,6 +9,6 @@ class ExportPlugin(CLIPlugin):
 
     def execute(self, namespace, **kwargs):
 
-        chebi_id = namespace.chebi_id
+        chebi_id = normalize_chebi_id(namespace.chebi_id)
 
         print(f"Pas implémenté encore mais {chebi_id} a été reçu")

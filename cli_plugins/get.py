@@ -1,6 +1,6 @@
 from Chebi.CheBi2 import CheBi2
 from cli_plugins.base.CLI_plugin import CLIPlugin
-
+from utils import normalize_chebi_id
 
 class GetPlugin(CLIPlugin):
 
@@ -11,8 +11,6 @@ class GetPlugin(CLIPlugin):
             help_text="Récupérer une molécule depuis ChEBI et l'ajouter à chebi2",
         )
         self.add_argument("--chebi-id", help_text="ID ChEBI de la molécule", required=True)
-        self.add_argument("--name", help_text="Nom à stocker en base (optionnel)", required=False)
-
         self.chebi_client = chebi_client
 
     def execute(self, namespace, **kwargs):
@@ -20,8 +18,7 @@ class GetPlugin(CLIPlugin):
             print("Client CheBi2 indisponible.")
             return
 
-        chebi_id = namespace.chebi_id
-        forced_name = namespace.name
+        chebi_id = normalize_chebi_id(namespace.chebi_id)
 
         print(f"Source sélectionnée: ChEBI ({chebi_id})")
         print("Récupération de la molécule...")
@@ -30,7 +27,7 @@ class GetPlugin(CLIPlugin):
             print(f"Aucune molécule trouvée pour {chebi_id}.")
             return
 
-        print(f"Préparation insertion DB: chebi_id={chebi_id}, name={forced_name}")
+        print(f"Préparation insertion DB: chebi_id={chebi_id}")
         print("Mise à jour de la base chebi2...")
-        self.chebi_client.update_table([(chebi_id, forced_name, mol_file)])
+        self.chebi_client.update_table([(chebi_id, None, mol_file)])
         print(f"Molécule {chebi_id} récupérée depuis ChEBI et stockée dans chebi2.")

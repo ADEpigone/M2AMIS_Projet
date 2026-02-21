@@ -3,7 +3,7 @@ from cli_plugins.base.CLI_plugin import CLIPlugin
 
 from Iso.iso_test import IsoTest
 from graph import MoleculeGraph
-from utils import check_none, print_ids
+from utils import check_none, normalize_chebi_id, print_ids
 
 class IsomorphismTestPlugin(CLIPlugin):
 
@@ -17,8 +17,8 @@ class IsomorphismTestPlugin(CLIPlugin):
 
     def execute(self, namespace, **kwargs):
 
-        id1 = namespace.id1
-        id2 = namespace.id2
+        id1 = normalize_chebi_id(namespace.id1)
+        id2 = normalize_chebi_id(namespace.id2)
 
         mol1 = self.chebi_client.get_mol(id1)
         mol2 = self.chebi_client.get_mol(id2)

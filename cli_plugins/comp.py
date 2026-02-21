@@ -4,7 +4,7 @@ from graph import MoleculeGraph
 
 from similarites.cwl_kernel import CWLKernel
 from similarites.builtin_similarity import BuiltinSimilarity
-from utils import print_ids
+from utils import normalize_chebi_id, print_ids
 
 class ComparisonPlugin(CLIPlugin):
 
@@ -18,8 +18,8 @@ class ComparisonPlugin(CLIPlugin):
 
     def execute(self, namespace, **kwargs):
 
-        id1 = namespace.id1
-        id2 = namespace.id2
+        id1 = normalize_chebi_id(namespace.id1)
+        id2 = normalize_chebi_id(namespace.id2)
         fingerprint = namespace.fingerprint.lower()
         method = namespace.method
 
