@@ -19,8 +19,14 @@ ONTOLOGY_CACHE = "DB_updates\\chebi_ontology.obo"
 
 _ontology_tree_cache = None
 
+def print_ids(id1, id2):
+    chebi_id1 = id1 if str(id1).upper().startswith("CHEBI:") else f"CHEBI:{id1}"
+    chebi_id2 = id2 if str(id2).upper().startswith("CHEBI:") else f"CHEBI:{id2}"
+    print(f"Molécule 1: https://www.ebi.ac.uk/chebi/searchId.do?chebiId={chebi_id1}")
+    print(f"Molécule 2: https://www.ebi.ac.uk/chebi/searchId.do?chebiId={chebi_id2}")
+
 def check_none(value, id):
-    if value is None:
+    if value is None or value == "":
         print(f"L'ID {id} n'est pas une molécule valide pour CheBi")
         return True
     return False

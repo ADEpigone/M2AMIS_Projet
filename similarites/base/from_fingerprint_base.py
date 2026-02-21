@@ -20,7 +20,10 @@ class BaseSimilarityFromFingerprint(BaseGraphSimilarity, ABC):
         if type(similarity) == str and similarity in SIMILARITIES:
             self.similarity = SIMILARITIES[similarity]
         else:
-            self.similarity = similarity
+            if callable(similarity):
+                self.similarity = similarity
+            else:
+                raise ValueError(f"Similarité {similarity} non supportée. Choisissez parmi : {list(SIMILARITIES.keys())} ou fournissez une fonction de similarité personnalisée.")
 
         self.n_bits = n_bits
     

@@ -27,6 +27,8 @@ class BuiltinSimilarity(BaseSimilarityFromFingerprint):
     def __init__(self, fingerprint = "morgan", similarity ="tanimoto"):
         if type(fingerprint) == str and fingerprint in FINGERPRINTS:
             self.fingerprint = FINGERPRINTS[fingerprint](2)
+        else:
+            raise ValueError(f"Fingerprint {fingerprint} non supportée. Choisissez parmi : {list(FINGERPRINTS.keys())}")
         super().__init__(similarity)
 
     def calculate_fingerprint(self, g1: MoleculeGraph) -> DataStructs:

@@ -3,7 +3,7 @@ from cli_plugins.base.CLI_plugin import CLIPlugin
 
 from Iso.iso_test import IsoTest
 from graph import MoleculeGraph
-from utils import check_none
+from utils import check_none, print_ids
 
 class IsomorphismTestPlugin(CLIPlugin):
 
@@ -22,14 +22,10 @@ class IsomorphismTestPlugin(CLIPlugin):
 
         mol1 = self.chebi_client.get_mol(id1)
         mol2 = self.chebi_client.get_mol(id2)
-
         if check_none(mol1, id1) or check_none(mol2, id2):
             return
         
-        chebi_id1 = id1 if str(id1).upper().startswith("CHEBI:") else f"CHEBI:{id1}"
-        chebi_id2 = id2 if str(id2).upper().startswith("CHEBI:") else f"CHEBI:{id2}"
-        print(f"Molécule 1: https://www.ebi.ac.uk/chebi/searchId.do?chebiId={chebi_id1}")
-        print(f"Molécule 2: https://www.ebi.ac.uk/chebi/searchId.do?chebiId={chebi_id2}")
+        print_ids(id1, id2)
 
         g1 = MoleculeGraph.from_moltext(mol1)
         g2 = MoleculeGraph.from_moltext(mol2)

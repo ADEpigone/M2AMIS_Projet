@@ -4,6 +4,7 @@ from graph import MoleculeGraph
 
 from similarites.cwl_kernel import CWLKernel
 from similarites.builtin_similarity import BuiltinSimilarity
+from utils import print_ids
 
 class ComparisonPlugin(CLIPlugin):
 
@@ -19,7 +20,7 @@ class ComparisonPlugin(CLIPlugin):
 
         id1 = namespace.id1
         id2 = namespace.id2
-        fingerprint = namespace.fingerprint
+        fingerprint = namespace.fingerprint.lower()
         method = namespace.method
 
         mol1 = self.chebi_client.get_mol(id1)
@@ -29,9 +30,10 @@ class ComparisonPlugin(CLIPlugin):
         g2 = MoleculeGraph.from_moltext(mol2)
 
         if fingerprint == "cwl":
-            print("oooo")
             sim_m = CWLKernel(similarity=method)
         else:
             sim_m = BuiltinSimilarity(fingerprint=fingerprint, similarity=method)
-
-        print(sim_m.calculate_similarity(g1, g2))
+        print_ids(id1, id2)
+        print("Méthode de fingerprint : " + fingerprint.capitalize())
+        print("Méthode de similarité : " + method.capitalize())
+        print(f"La similarité entre les molécules {id1} et {id2} est : {sim_m.calculate_similarity(g1, g2)}")
