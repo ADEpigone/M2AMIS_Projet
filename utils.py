@@ -1,3 +1,6 @@
+import csv
+import random
+
 import requests
 import os
 import importlib.util
@@ -9,6 +12,7 @@ from rdkit import RDLogger
 
 from Chebi.ontology.parser import parse_obo
 from Chebi.ontology.ontology_tree import OntologyTree
+from graph import MoleculeGraph
 
 MOL_LITE_URL = "https://ftp.ebi.ac.uk/pub/databases/chebi/SDF/chebi_lite.sdf.gz"
 MOL_LITE_UPDATE = os.path.join("DB_updates", "mol_lite_last_update.txt")
@@ -31,6 +35,49 @@ def build_kernel(kernel_name: str, similarity: str):
         ontology = load_ontology()
         return OntologySimilarity(ontology), False
     raise ValueError(f"Kernel inconnu: {kernel_name}")
+
+def load_esol_dataset(csv_path, limit=None, seed=42):
+    if not os.path.exists(csv_path):
+        print(f"Dataset ESOL introuvable: {csv_path}")
+        return [], {"total": 0, "skipped": 0}
+
+    molecules = []
+    skipped = 0
+
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for idx, row in enumerate(reader):
+            if limit is not None and len(molecules) >= limit:
+                break
+
+            smiles = (row.get("smiles") or row.get("SMILES") or "").strip()
+            log_s = row.get("logS")
+            name = row.get("name") or row.get("Compound ID") or f"esol_{idx}"
+
+            if not smiles or log_s is None:
+                skipped += 1
+                continue
+
+            try:
+                log_s_val = float(log_s)
+                graph = MoleculeGraph.from_smiles(smiles, chebi_id=name)
+                if graph is None or not graph.nodes:
+                    raise ValueError("invalid graph")
+            except Exception:
+                skipped += 1
+                continue
+
+            molecules.append(
+                {
+                    "chebi_id": name,
+                    "name": name,
+                    "graph": graph,
+                    "properties": {"logS": log_s_val, "smiles": smiles},
+                }
+            )
+
+    random.Random(seed).shuffle(molecules)
+    return molecules, {"total": len(molecules), "skipped": skipped, "source": "esol"}
 
 def ensure_chebi_db_up_to_date():
     print("Vérification de la base locale ChEBI...")
