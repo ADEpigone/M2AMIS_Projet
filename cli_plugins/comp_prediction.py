@@ -3,8 +3,7 @@ import os
 from cli_plugins.base.CLI_plugin import CLIPlugin
 from analysis.comp_prediction import compare_prediction_benchmark
 from analysis.comp_similarity import compare_similarity_kernels
-from datasets.download_esol import download_esol
-from utils import load_esol_dataset
+from utils import load_esol_dataset, download_esol
 
 
 class PredictionBenchmarkPlugin(CLIPlugin):

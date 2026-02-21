@@ -13,7 +13,6 @@ from rdkit import RDLogger
 
 from Chebi.CheBi2 import CheBi2
 from graph import MoleculeGraph
-from datasets.base.dataset import MoleculeEntry
 from similarites.cwl_kernel import CWLKernel
 # from similarites.builtin_similarity import BuiltinSimilarity
 from utils import *
