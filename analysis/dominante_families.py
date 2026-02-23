@@ -1,15 +1,14 @@
-import numpy as np
-import matplotlib.pyplot as plt
+import json
 from collections import Counter
+from pathlib import Path
 
-from analysis.clusters import DB_PATH, load_clusters
+import matplotlib.pyplot as plt
+import numpy as np
+
 from utils import load_ontology
-from Chebi.CheBi2 import CheBi2
-
 
 
 def _safe_depth(node) -> int:
-    """Retourne une profondeur si dispo, sinon 0 (fallback)."""
     if hasattr(node, "get_depth") and callable(getattr(node, "get_depth")):
         try:
             return int(node.get_depth())
@@ -23,172 +22,259 @@ def _safe_depth(node) -> int:
     return 0
 
 
-def most_specific_family_id(ontology, mol_chebi_id: str, min_depth: int = 3) -> str | None:
-    """
-    Retourne UN identifiant de famille 'spécifique' pour la molécule.
-    Heuristique:
-      - candidats = {mol} U ancêtres(mol)
-      - filtre profondeur >= min_depth (évite 'chemical entity', etc.)
-      - prend le candidat avec profondeur maximale
-    """
-    mol_node = ontology.get_node(mol_chebi_id)
-    if not mol_node:
-        return None
+def load_clusters_from_json(json_path: str) -> dict[int, list[dict]]:
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"JSON introuvable: {json_path}")
 
-    # candidats = mol + ancêtres
-    cand_ids = set([mol_chebi_id])
-    anc = mol_node.get_ancestors() or set()
-    cand_ids |= set(anc)
+    with open(path, "r") as f:
+        data = json.load(f)
 
-    best_id = None
-    best_depth = -1
-
-    for cid in cand_ids:
-        node = ontology.get_node(cid)
-        if not node:
-            continue
-        d = _safe_depth(node)
-        if d < min_depth:
-            continue
-        if d > best_depth:
-            best_depth = d
-            best_id = cid
-
-    # Si rien ne passe le filtre, on fallback sur la molécule elle-même
-    return best_id or mol_chebi_id
+    clusters: dict[int, list[dict]] = {}
+    for entry in data:
+        cid = int(entry["cluster"])
+        if cid not in clusters:
+            clusters[cid] = []
+        clusters[cid].append(entry)
+    return clusters
 
 
-def is_ancestor_or_equal(ontology, ancestor_id: str, node_id: str) -> bool:
-    """Vrai si ancestor_id est un ancêtre (ou égal) de node_id."""
-    if ancestor_id == node_id:
-        return True
-    node = ontology.get_node(node_id)
+def ancestors_with_self(ontology, mol_chebi_id: str) -> set[str]:
+    node = ontology.get_node(mol_chebi_id)
     if not node:
-        return False
+        return set()
     anc = node.get_ancestors() or set()
-    return ancestor_id in anc
+    all_ids = set(anc)
+    all_ids.add(mol_chebi_id)
+    return all_ids
 
 
-def dominant_family_ratio_for_cluster(
-    ontology,
-    cluster_members: list[dict],
-    min_depth: int = 3
-) -> tuple[float, str | None, Counter]:
+def dominant_consensus_for_cluster(
+    ontology, cluster_members: list[dict]
+) -> tuple[str | None, float, int, float, Counter]:
     """
-    Retourne:
-      - ratio dominant (max_count / size)
-      - id de la famille dominante (représentant)
-      - distribution des familles dominantes candidates (Counter)
+    Dominance sur TOUT l'ensemble des ancetres:
+      - on compte, pour chaque ancetre A, combien de molecules du cluster ont A
+      - famille dominante = ancetre au meilleur score support-profondeur
+      - ratio = support du dominant = count / n_molecules_valides
+    Tie-break:
+      - plus grand support
+      - puis plus grande profondeur
+      - puis id lexicographique (deterministe)
     """
-    n = len(cluster_members)
-    if n == 0:
-        return 0.0, None, Counter()
-
-    dominant_reps: list[str] = []   # liste des "familles dominantes candidates" (représentants)
-    assign_counts = Counter()
+    ancestor_counts = Counter()
+    n_valid = 0
 
     for m in cluster_members:
         mol_id = str(m.get("chebi_id"))
-        fam_id = most_specific_family_id(ontology, mol_id, min_depth=min_depth)
-        if fam_id is None:
+        anc_ids = ancestors_with_self(ontology, mol_id)
+        if not anc_ids:
             continue
+        n_valid += 1
+        for anc_id in anc_ids:
+            ancestor_counts[anc_id] += 1
 
-        # Essayer d'assigner la molécule à un représentant existant
-        assigned = False
-        for rep in dominant_reps:
-            # si la famille spécifique de la molécule est "parentée" (descendante)
-            # d'une famille dominante déjà présente, on l'assigne à celle-ci.
-            if is_ancestor_or_equal(ontology, rep, fam_id):
-                assign_counts[rep] += 1
-                assigned = True
-                break
+    if n_valid == 0 or not ancestor_counts:
+        return None, 0.0, 0, 0.0, Counter()
 
-        if not assigned:
-            dominant_reps.append(fam_id)
-            assign_counts[fam_id] += 1
+    depths = {}
+    max_depth = 0
+    for anc_id in ancestor_counts.keys():
+        node = ontology.get_node(anc_id)
+        d = _safe_depth(node) if node else 0
+        depths[anc_id] = d
+        if d > max_depth:
+            max_depth = d
+    if max_depth <= 0:
+        max_depth = 1
 
-    if not assign_counts:
-        return 0.0, None, Counter()
+    best_id = None
+    best_support = -1.0
+    best_depth = -1
+    best_select_score = -1.0
+    for anc_id, count in ancestor_counts.items():
+        depth = depths[anc_id]
+        support = count / n_valid
+        depth_norm = depth / max_depth
+        select_score = support * depth_norm
 
-    dom_id, dom_count = assign_counts.most_common(1)[0]
-    ratio = dom_count / n
-    return ratio, dom_id, assign_counts
+        if select_score > best_select_score:
+            best_id = anc_id
+            best_support = support
+            best_depth = depth
+            best_select_score = select_score
+        elif select_score == best_select_score:
+            if support > best_support:
+                best_id = anc_id
+                best_support = support
+                best_depth = depth
+            elif support == best_support and depth > best_depth:
+                best_id = anc_id
+                best_depth = depth
+            elif support == best_support and depth == best_depth and best_id is not None and anc_id < best_id:
+                best_id = anc_id
+
+    return best_id, best_support, best_depth, best_select_score, ancestor_counts
 
 
-def dominant_ratios_for_all_clusters(
+def consensus_scores_for_all_clusters(
     ontology,
-    cluster_map: dict,
-    min_depth: int = 3,
-    min_cluster_size: int = 2
-):
+    cluster_map: dict[int, list[dict]],
+    min_cluster_size: int = 3,
+    min_depth: int = 0,
+) -> tuple[list[float], dict[int, dict]]:
     """
-    Calcule DFR(C) pour tous les clusters en filtrant les petits clusters.
+    Score consensus-profondeur (CDS):
+      CDS = ratio_dominance * (profondeur_famille_dominante / profondeur_max_observee)
     """
-    ratios = []
+    rows = []
     details = {}
 
     for cid, members in cluster_map.items():
         if len(members) < min_cluster_size:
             continue
+        dom_id, ratio, depth, select_score, _ = dominant_consensus_for_cluster(ontology, members)
+        if depth < min_depth:
+            continue
+        rows.append((cid, dom_id, ratio, depth, select_score, len(members)))
 
-        ratio, dom_id, dist = dominant_family_ratio_for_cluster(
-            ontology, members, min_depth=min_depth
-        )
-        ratios.append(ratio)
+    if not rows:
+        return [], details
+
+    max_depth = max(r[3] for r in rows)
+    if max_depth <= 0:
+        max_depth = 1
+
+    scores = []
+    for cid, dom_id, ratio, depth, select_score, size in rows:
+        depth_norm = depth / max_depth
+        score = ratio * depth_norm
+        scores.append(score)
         details[cid] = {
-            "size": len(members),
+            "size": size,
             "dominant_family_id": dom_id,
-            "dominant_ratio": ratio,
-            "distribution": dist,
+            "dominance_ratio": ratio,
+            "depth": depth,
+            "depth_norm": depth_norm,
+            "dominant_selection_score": select_score,
+            "consensus_depth_score": score,
         }
 
-    return ratios, details
+    return scores, details
 
 
-def plot_cumulative_curve(
-    ratios: list[float],
+def plot_cumulative_curves(
+    curves: dict[str, list[float]],
     n_points: int = 101,
-    title: str = "CDF des ratios de famille dominante",
-    output_path: str = "cdf_dominant_family.png"
+    title: str = "CDF consensus-profondeur",
+    output_path: str = "cdf_consensus_depth_comparison.png",
 ):
-    """
-    Sauvegarde y(t) = proportion de clusters avec ratio >= t
-    dans un fichier image.
-    """
-    ratios = np.array(ratios, dtype=float)
     thresholds = np.linspace(0.0, 1.0, n_points)
 
-    # Proportion de clusters qui dépassent le seuil
-    y = [(ratios >= t).mean() for t in thresholds]
-
     plt.figure()
-    plt.plot(thresholds, y)
-    plt.xlabel("Seuil t sur le ratio dominant (DFR)")
-    plt.ylabel("Proportion de clusters avec DFR ≥ t")
+    for label, scores in curves.items():
+        arr = np.array(scores, dtype=float)
+        if len(arr) == 0:
+            continue
+        y = [(arr >= t).mean() for t in thresholds]
+        plt.plot(thresholds, y, label=label)
+
+    plt.xlabel("Seuil t sur CDS = ratio * profondeur_normalisee")
+    plt.ylabel("Proportion de clusters avec CDS >= t")
     plt.title(title)
     plt.grid(True)
+    plt.legend()
 
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close()
+    print(f"[OK] Courbe sauvegardee: {output_path}")
 
-    print(f"[OK] Courbe cumulative sauvegardée dans : {output_path}")
+
+def plot_cumulative_curve(
+    scores: list[float],
+    n_points: int = 101,
+    title: str = "CDF consensus-profondeur",
+    output_path: str = "cdf_consensus_depth.png",
+):
+    plot_cumulative_curves(
+        curves={"CDS": scores},
+        n_points=n_points,
+        title=title,
+        output_path=output_path,
+    )
 
 
+def plot_cds_vs_cluster_size(
+    details: dict[int, dict],
+    title: str,
+    output_path: str,
+):
+    sizes = []
+    scores = []
+    for info in details.values():
+        sizes.append(info["size"])
+        scores.append(info["consensus_depth_score"])
+
+    if not sizes:
+        print(f"[WARN] Aucun point a tracer pour: {output_path}")
+        return
+
+    plt.figure()
+    plt.scatter(sizes, scores, alpha=0.7, s=24)
+    plt.xlabel("Taille du cluster")
+    plt.ylabel("CDS")
+    plt.title(title)
+    plt.grid(True)
+    plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"[OK] Nuage de points sauvegarde: {output_path}")
 
 
 if __name__ == "__main__":
-    cluster_map = load_clusters("clusters_ontology_t0.7.json")
     ontology = load_ontology()
 
-    chebi_db = CheBi2(DB_PATH)
-    molecules = list(chebi_db.get_all_mols())
+    cluster_configs = [
+        {
+            "label": "Morgan + Tanimoto",
+            "json": "clusters_data_morgan_tanimoto.json",
+            "tag": "morgan",
+        },
+        {
+            "label": "CWL + Tanimoto",
+            "json": "clusters_data_CWL_tanimoto.json",
+            "tag": "cwl",
+        },
+    ]
 
-    # Calcule ratios par cluster
-    ratios, details = dominant_ratios_for_all_clusters(ontology, cluster_map, min_depth=3)
+    curves = {}
+    for cfg in cluster_configs:
+        label = cfg["label"]
+        json_file = cfg["json"]
+        tag = cfg["tag"]
 
-    print(f"Nombre de clusters analysés: {len(ratios)}")
-    print(f"Moyenne DFR: {np.mean(ratios):.3f} | Médiane DFR: {np.median(ratios):.3f}")
-    print(f"% clusters avec DFR ≥ 0.7: {(np.mean(np.array(ratios) >= 0.7) * 100):.1f}%")
+        cluster_map = load_clusters_from_json(json_file)
+        scores, details = consensus_scores_for_all_clusters(ontology, cluster_map, min_cluster_size=2)
 
-    # Trace la courbe cumulative
-    plot_cumulative_curve(ratios, title="Courbe cumulative du ratio de famille dominante (clusters)", output_path="cdf_dominant_family_clusters.png")
+        if len(scores) == 0:
+            print(f"{label} | aucun cluster analyse.")
+            continue
+
+        curves[label] = scores
+        arr = np.array(scores, dtype=float)
+        print(f"{label} | Clusters analyses: {len(arr)}")
+        print(f"{label} | Moyenne CDS: {arr.mean():.3f} | Mediane CDS: {np.median(arr):.3f}")
+        print(f"{label} | % clusters avec CDS >= 0.5: {(np.mean(arr >= 0.5) * 100):.1f}%")
+
+        plot_cds_vs_cluster_size(
+            details,
+            title=f"CDS en fonction de la taille des clusters ({label})",
+            output_path=f"scatter_cds_vs_size_{tag}.png",
+        )
+
+    if not curves:
+        raise RuntimeError("Aucune courbe a tracer. Verifie les JSON d'entree.")
+
+    plot_cumulative_curves(
+        curves,
+        title="Comparaison des courbes cumulatives du consensus-profondeur",
+    )

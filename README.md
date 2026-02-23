@@ -19,7 +19,7 @@ Ici réside le code utilisé dans le rapport du groupe B.
 - **Récupération et cache local** : Téléchargement automatique depuis ChEBI et stockage dans une BDD SQLite.
 - **Test d'isomorphisme** : Vérification d'isomorphisme exact entre deux molécules.
 - **Comparaison de similarité** : Calcul de similarité entre graphes moléculaires via Cellular WL ou des fingerprints classiques (Morgan, RDKit).
-- **Clustering et analyse** : Clustering hiérarchique, analyse de pureté des clusters et identification des familles dominantes.
+- **Clustering et analyse** : Clustering hiérarchique, analyse de pureté des clusters et analyse des familles dominantes via score consensus-profondeur (CDS).
 - **Benchmark ESOL (`logS`)** : Évaluation des performances de prédiction de solubilité dans l'eau et de continuité du voisinage.
 - **Corrélation Syntaxique/Sémantique** : Comparaison entre la similarité structurelle (fingerprints) et une similarité sémantique (ontologie ChEBI).
 
@@ -45,10 +45,11 @@ M2AMIS_Projet/
 │
 ├── analysis/                  # Benchmarks/Calculs sur les données
 │   ├── clusters.py            # Clustering hiérarchique
+│   ├── clusters.py            # Heatmap des clusters
 │   ├── comp_prediction.py     # Benchmark de prédiction (ESOL)
 │   ├── comp_similarity.py     # Benchmark de continuité du voisinage(ESOL)
 │   ├── purity_analysis.py     # Etant donné une famille ontologique, regarde les clusters
-│   ├── dominante_families.py  # Evalue la constitution des clusters
+│   ├── dominante_families.py  # Evalue la constitution des clusters (famille dominante + CDS)
 │   └── correlation.py         # Corrélation syntaxique vs sémantique
 │
 ├── similarites/               #
@@ -118,6 +119,12 @@ python3 ./mol_cli.py comp --id1 100 --id2 101 --fingerprint cwl --method tanimot
 python3 ./mol_cli.py comp_prediction --operation all --dataset datasets/esol.csv --fingerprints morgan,rdkit,cwl --models ridge,rf --similarities tanimoto,dice,cosine --folds 5
 ```
 
+**5. Générer et sauvegarder la heatmap de similarité (ordre hiérarchique)**
+
+```bash
+python3 ./mol_cli.py clustering --operation heatmap --kernel cwl --similarity tanimoto --sample-size 500 --output-file heatmap_hierarchical_similarity.png
+```
+
 ---
 
 ## Guide du CLI
@@ -178,7 +185,13 @@ python3 ./mol_cli.py comp --id1 100 --id2 101 --fingerprint morgan --method tani
 ### `clustering`
 
 Effectue un clustering hiérarchique sur les molécules de la base et  options d'analyse.
-*Opérations disponibles : `run`, `load`, `purity`, `dominant`, `cdf`.*
+*Opérations disponibles : `run`, `load`, `purity`, `dominant`, `cdf`, `heatmap`.*
+
+Notes sur les opérations d'analyse :
+
+- `dominant` : calcule la famille dominante de chaque cluster et le score CDS (`ratio_dominance * profondeur_normalisee`).
+- `cdf` : trace la courbe cumulative des scores CDS (et non plus une CDF du seul ratio de domination).
+- `heatmap` : recalcule les similarités et le clustering hiérarchique à la demande, puis trace une heatmap des similarités ordonnée par les feuilles du dendrogramme.
 
 **Exemple : Lancer le clustering**
 
@@ -190,6 +203,24 @@ python3 ./mol_cli.py clustering --operation run --kernel cwl --similarity tanimo
 
 ```bash
 python3 ./mol_cli.py clustering --operation purity --input-file clusters_data.json --family flavonoids
+```
+
+**Exemple : Analyse des familles dominantes (CDS)**
+
+```bash
+python3 ./mol_cli.py clustering --operation dominant --input-file clusters_data.json --min-depth 3 --min-cluster-size 2
+```
+
+**Exemple : Tracer la CDF des scores CDS**
+
+```bash
+python3 ./mol_cli.py clustering --operation cdf --input-file clusters_data.json --output-file cdf_consensus_depth_clusters.png
+```
+
+**Exemple : Générer une heatmap ordonnée hiérarchiquement**
+
+```bash
+python3 ./mol_cli.py clustering --operation heatmap --kernel cwl --similarity tanimoto --sample-size 500 --output-file heatmap_hierarchical_similarity.png
 ```
 
 ### `comp_prediction`

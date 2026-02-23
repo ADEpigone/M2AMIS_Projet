@@ -10,9 +10,10 @@ from analysis.clusters import (
 	run_clustering_and_save,
 )
 from analysis.dominante_families import (
-	dominant_ratios_for_all_clusters,
+	consensus_scores_for_all_clusters,
 	plot_cumulative_curve,
 )
+from analysis.clustering_heatmap import generate_hierarchical_similarity_heatmap
 from analysis.purity_analysis import analyze_family_purity
 from similarites.builtin_similarity import BuiltinSimilarity
 from similarites.cwl_kernel import CWLKernel
@@ -40,9 +41,9 @@ class ClusteringPlugin(CLIPlugin):
 
 		self.add_argument(
 			"--operation",
-			help_text="Opération à exécuter: run, load, purity, dominant, cdf",
+			help_text="Opération à exécuter: run, load, purity, dominant, cdf, heatmap",
 			required=True,
-			choices=["run", "load", "purity", "dominant", "cdf"],
+			choices=["run", "load", "purity", "dominant", "cdf", "heatmap"],
 		)
 		self.add_argument(
 			"--input-file",
@@ -51,7 +52,7 @@ class ClusteringPlugin(CLIPlugin):
 		)
 		self.add_argument(
 			"--output-file",
-			help_text="Fichier de sortie (run/cdf)",
+			help_text="Fichier de sortie (run/cdf/heatmap)",
 			default=None,
 		)
 		self.add_argument(
@@ -151,29 +152,29 @@ class ClusteringPlugin(CLIPlugin):
 			if cluster_map is None:
 				return
 			ontology = load_ontology()
-			ratios, details = dominant_ratios_for_all_clusters(
+			scores, details = consensus_scores_for_all_clusters(
 				ontology,
 				cluster_map,
-				min_depth=namespace.min_depth,
 				min_cluster_size=namespace.min_cluster_size,
+				min_depth=namespace.min_depth,
 			)
-			if not ratios:
-				print("Aucun cluster exploitable pour l'analyse des familles dominantes.")
+			if not scores:
+				print("Aucun cluster exploitable pour l'analyse CDS des familles dominantes.")
 				return
-			ratio_arr = np.array(ratios)
-			print(f"Nombre de clusters analysés: {len(ratios)}")
-			print(f"Moyenne ratio de dom : {ratio_arr.mean():.3f} | Médiane ratio de dom : {np.median(ratio_arr):.3f}")
-			print(f"% clusters avec ratio de domination >= 0.7: {(np.mean(ratio_arr >= 0.7) * 100):.1f}%")
+			score_arr = np.array(scores)
+			print(f"Nombre de clusters analysés: {len(scores)}")
+			print(f"Moyenne CDS : {score_arr.mean():.3f} | Médiane CDS : {np.median(score_arr):.3f}")
+			print(f"% clusters avec CDS >= 0.5: {(np.mean(score_arr >= 0.5) * 100):.1f}%")
 
 			top = sorted(
 				details.items(),
-				key=lambda item: item[1]["dominant_ratio"],
+				key=lambda item: item[1]["consensus_depth_score"],
 				reverse=True)[:5]
-			print("Top 5 clusters par domination:")
+			print("Top 5 clusters par score CDS:")
 			for cid, info in top:
 				print(
-					f"  - Cluster {cid}: size={info['size']}, ratio de domination={info['dominant_ratio']:.3f}, "
-					f"famille={info['dominant_family_id']}"
+					f"  - Cluster {cid}: size={info['size']}, CDS={info['consensus_depth_score']:.3f}, "
+					f"ratio={info['dominance_ratio']:.3f}, profondeur={info['depth']}, famille={info['dominant_family_id']}"
 				)
 			return
 
@@ -182,20 +183,33 @@ class ClusteringPlugin(CLIPlugin):
 			if cluster_map is None:
 				return
 			ontology = load_ontology()
-			ratios, _ = dominant_ratios_for_all_clusters(
+			scores, _ = consensus_scores_for_all_clusters(
 				ontology,
 				cluster_map,
-				min_depth=namespace.min_depth,
 				min_cluster_size=namespace.min_cluster_size,
+				min_depth=namespace.min_depth,
 			)
-			if not ratios:
-				print("Aucun ratio disponible pour tracer la courbe cumulative.")
+			if not scores:
+				print("Aucun score CDS disponible pour tracer la courbe cumulative.")
 				return
 
-			plot_path = output_file if output_file else "cdf_dominant_family_clusters.png"
+			plot_path = output_file if output_file else "cdf_consensus_depth_clusters.png"
 			plot_cumulative_curve(
-				ratios,
-				title="Courbe cumulative du ratio de famille dominante (clusters)",
+				scores,
+				title="Courbe cumulative du score consensus-profondeur (CDS)",
+				output_path=plot_path,
+			)
+			return
+
+		if operation == "heatmap":
+			sim_kernel, has_fingerprint = build_kernel(namespace.kernel, namespace.similarity)
+			plot_path = output_file if output_file else "heatmap_hierarchical_similarity.png"
+			max_molecules = None if namespace.sample_size <= 0 else namespace.sample_size
+			generate_hierarchical_similarity_heatmap(
+				sim_kernel=sim_kernel,
+				has_fingerprint=has_fingerprint,
+				dist_threshold=namespace.threshold,
+				max_molecules=max_molecules,
 				output_path=plot_path,
 			)
 			return

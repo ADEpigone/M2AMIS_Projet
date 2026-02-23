@@ -1,7 +1,6 @@
 from Chebi.CheBi2 import CheBi2
 from cli_plugins.base.CLI_plugin import CLIPlugin
 
-from Iso.iso_test import IsoTest
 from graph import MoleculeGraph
 from utils import check_none, normalize_chebi_id, print_ids
 
@@ -13,10 +12,12 @@ class IsomorphismTestPlugin(CLIPlugin):
         self.add_argument("--id2", help_text="L'ID Chebi de la molécule", required=True)
 
         self.chebi_client = chebi_client
-        self.test = IsoTest()
+        self.test = None
 
     def execute(self, namespace, **kwargs):
-
+        from Iso.iso_test import IsoTest
+        if self.test is None:
+            self.test = IsoTest()    
         id1 = normalize_chebi_id(namespace.id1)
         id2 = normalize_chebi_id(namespace.id2)
 
