@@ -84,10 +84,10 @@ M2AMIS_Projet/
 Le projet s'appuie sur les bibliothèques suivantes :
 
 ```bash
-pip install rdkit numpy scipy scikit-learn tqdm requests matplotlib
+pip install -r requirements.txt
 ```
 
----
+Nous utilisons la bibliothèque `pynauty` qui ne fournit que des binaires pour Linux et MacOS, limitant ainsi la compatibilité avec Windows. Vous pouvez cependant utiliser le projet en dehors de la partie sur les isomorphismes en n'installant pas pynauty (tout sera fonctionnel, en dehors de la commande iso).
 
 ## Quickstart
 
