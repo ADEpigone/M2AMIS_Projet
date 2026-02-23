@@ -23,8 +23,6 @@ Ici réside le code utilisé dans le rapport du groupe B.
 
 ## Architecture du Projet
 
-Le projet est structuré de manière modulaire pour séparer la logique métier, l'accès aux données et l'interface utilisateur (CLI).
-
 ```text
 M2AMIS_Projet/
 ├── mol_cli.py                 # CLI à utiliser pour lancer le code
@@ -81,7 +79,7 @@ Le projet s'appuie sur les bibliothèques suivantes :
 pip install -r requirements.txt
 ```
 
-Nous utilisons la bibliothèque `pynauty` qui ne fournit que des binaires pour Linux et MacOS, limitant ainsi la compatibilité avec Windows. Vous pouvez cependant utiliser le projet en dehors de la partie sur les isomorphismes en n'installant pas pynauty (tout sera fonctionnel, en dehors de la commande iso).
+Nous utilisons la bibliothèque `pynauty` qui ne fournit que des binaires pour Linux et MacOS, limitant ainsi la compatibilité avec Windows, l'utilisation de WSL est alors recommandée. Vous pouvez cependant utiliser le projet en dehors de la partie sur les isomorphismes en n'installant pas pynauty (tout sera fonctionnel, en dehors de la commande iso).
 
 ## Quickstart
 
