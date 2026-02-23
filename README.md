@@ -12,8 +12,6 @@ Ici réside le code utilisé dans le rapport du groupe B.
 4. Démarrage Rapide (Quickstart)
 5. Guide du CLI
 
----
-
 ## Fonctionnalités Principales
 
 - **Récupération et cache local** : Téléchargement automatique depuis ChEBI et stockage dans une BDD SQLite.
@@ -22,8 +20,6 @@ Ici réside le code utilisé dans le rapport du groupe B.
 - **Clustering et analyse** : Clustering hiérarchique, analyse de pureté des clusters et analyse des familles dominantes via score consensus-profondeur (CDS).
 - **Benchmark ESOL (`logS`)** : Évaluation des performances de prédiction de solubilité dans l'eau et de continuité du voisinage.
 - **Corrélation Syntaxique/Sémantique** : Comparaison entre la similarité structurelle (fingerprints) et une similarité sémantique (ontologie ChEBI).
-
----
 
 ## Architecture du Projet
 
@@ -69,8 +65,6 @@ M2AMIS_Projet/
 
 - **`cli_plugins/`** : Le CLI détecte automatiquement les commandes, tant que le fichier contient une classe qui implemente CLIPlugin (qui se trouve dans cli_plugins/base). Chacunes de ces classes définit une commande CLI (ex: `get`, `comp`, `clustering`). Cela rend le projet très facile à étendre.
 - **`similarites/`** : Chaque similarité doit implémenter soit la brique de base BaseGraphSimilarity (dans le cas de noyaux personnalisés), soit BaseSimilarityFromFingerprint (dans le cas de fingerprints).
-
----
 
 ## Installation
 
@@ -119,7 +113,7 @@ python3 ./mol_cli.py comp --id1 100 --id2 101 --fingerprint cwl --method tanimot
 python3 ./mol_cli.py comp_prediction --operation all --dataset datasets/esol.csv --fingerprints morgan,rdkit,cwl --models ridge,rf --similarities tanimoto,dice,cosine --folds 5
 ```
 
-**5. Générer et sauvegarder la heatmap de similarité (ordre hiérarchique)**
+**5. Générer et sauvegarder la heatmap de similarité**
 
 ```bash
 python3 ./mol_cli.py clustering --operation heatmap --kernel cwl --similarity tanimoto --sample-size 500 --output-file heatmap_hierarchical_similarity.png
@@ -142,7 +136,7 @@ python3 ./mol_cli.py -h
 Pour chaque commande, pour avoir des informations sur ses arguments :
 
 ```bash
-python3 ./mol_cli command -h
+python3 ./mol_cli commande -h
 ```
 
 `get`
@@ -190,7 +184,7 @@ Effectue un clustering hiérarchique sur les molécules de la base et  options d
 Notes sur les opérations d'analyse :
 
 - `dominant` : calcule la famille dominante de chaque cluster et le score CDS (`ratio_dominance * profondeur_normalisee`).
-- `cdf` : trace la courbe cumulative des scores CDS (et non plus une CDF du seul ratio de domination).
+- `cdf` : trace la courbe cumulative des scores CDS (Consensus des dominations).
 - `heatmap` : recalcule les similarités et le clustering hiérarchique à la demande, puis trace une heatmap des similarités ordonnée par les feuilles du dendrogramme.
 
 **Exemple : Lancer le clustering**
