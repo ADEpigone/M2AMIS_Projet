@@ -20,4 +20,4 @@ if __name__ == "__main__":
         if plugin.match(args.command):
             plugin.execute(args)
 
-    print(args)
+    #print(args)
