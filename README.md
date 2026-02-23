@@ -119,8 +119,6 @@ python3 ./mol_cli.py comp_prediction --operation all --dataset datasets/esol.csv
 python3 ./mol_cli.py clustering --operation heatmap --kernel cwl --similarity tanimoto --sample-size 500 --output-file heatmap_hierarchical_similarity.png
 ```
 
----
-
 ## Guide du CLI
 
 IMPORTANT : https://www.ebi.ac.uk/chebi/CHEBI:id ou CHEBI:id ou id seul ne font pas de différence dans les commandes du CLI.
